@@ -1,8 +1,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Прямое подключение к вашему проекту Supabase
-const supabaseUrl = 'https://avbgagesrffbuuojrjipy.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YmdhZ2VzcmZmYnVvanJqaXB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4Njg4NTYsImV4cCI6MjA4NjQ0NDg1Nn0.fOGZmfmTKm9LgOl4jBfCFUWsDprgX-1QM1KnIqYIJBI';
+// Данные вашего нового проекта
+const supabaseUrl = 'https://speklqrjpwfsznxovei.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwZWtscXJvanB3ZnN6bnhvdmVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzYxOTksImV4cCI6MjA4NjUxMjE5OX0.ZkWKtyMWkKFmeYZLmcqN5hIjXj94pal2zhEuvYaPch0';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

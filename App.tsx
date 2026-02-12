@@ -13,7 +13,7 @@ import CreateTrip from './views/driver/CreateTrip';
 import ManageRequests from './views/driver/ManageRequests';
 import NotificationsView from './views/Notifications';
 
-const SESSION_KEY = 'kavkaz_express_session';
+const SESSION_KEY = 'kavkaz_express_session_v2';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
+  const [isDbReady, setIsDbReady] = useState<boolean>(true);
   
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [passengerSubView, setPassengerSubView] = useState<string>('home');
@@ -84,11 +85,13 @@ const App: React.FC = () => {
   });
 
   const handleSupabaseError = (e: any) => {
-    console.error("Supabase Error Context:", e);
-    if (e.message === 'Failed to fetch') {
-      return 'Нет связи с сервером базы данных. Проверьте интернет или отключите AdBlock.';
+    console.error("Supabase Error:", e);
+    if (e.message === 'Failed to fetch') return 'Сетевая ошибка. Проверьте VPN/AdBlock.';
+    if (e.code === '42P01') {
+      setIsDbReady(false);
+      return 'Таблицы в Supabase не созданы. Выполните SQL-скрипт в панели управления.';
     }
-    return e.message || 'Произошла неизвестная ошибка';
+    return e.message || 'Ошибка базы данных';
   };
 
   const fetchData = async () => {
@@ -106,6 +109,7 @@ const App: React.FC = () => {
       if (ne) throw ne;
 
       setErrorStatus(null);
+      setIsDbReady(true);
       setAllUsers((u || []).map(mapUser));
       setTrips((t || []).map(mapTrip));
       setBookings((b || []).map(mapBooking));
@@ -113,7 +117,6 @@ const App: React.FC = () => {
     } catch (error: any) {
       const msg = handleSupabaseError(error);
       setErrorStatus(msg);
-      console.error("Critical Fetch Error:", error);
     }
   };
 
@@ -126,7 +129,7 @@ const App: React.FC = () => {
       if (sessionData) {
         try {
           const activeUser = JSON.parse(sessionData);
-          const { data: dbUser, error: findError } = await supabase.from('users').select('*').eq('id', activeUser.id).single();
+          const { data: dbUser, error: findError } = await supabase.from('users').select('*').eq('id', activeUser.id).maybeSingle();
           
           if (dbUser && !findError) {
             const mapped = mapUser(dbUser);
@@ -155,7 +158,7 @@ const App: React.FC = () => {
 
   const handleLogin = async (email: string, phone: string, password?: string) => {
     try {
-      const trimmedEmail = email.toLowerCase();
+      const trimmedEmail = email.toLowerCase().trim();
       const { data: existingUsers, error: findError } = await supabase.from('users').select('*').eq('email', trimmedEmail);
       
       if (findError) throw findError;
@@ -190,7 +193,7 @@ const App: React.FC = () => {
       else if (!finalUser.firstName) setView('profile-setup');
       else setView('main');
     } catch (e: any) {
-      alert(`Ошибка: ${handleSupabaseError(e)}`);
+      alert(`Ошибка авторизации: ${handleSupabaseError(e)}`);
     }
   };
 
@@ -210,12 +213,7 @@ const App: React.FC = () => {
   const handleProfileSave = async (firstName: string, lastName: string, middleName: string) => {
     if (!user) return;
     const fullName = `${lastName} ${firstName} ${middleName}`.trim();
-    const updateDataRaw = { 
-      first_name: firstName, 
-      last_name: lastName, 
-      middle_name: middleName, 
-      full_name: fullName 
-    };
+    const updateDataRaw = { first_name: firstName, last_name: lastName, middle_name: middleName, full_name: fullName };
     const { error } = await supabase.from('users').update(updateDataRaw).eq('id', user.id);
     if (error) { 
       alert(`Ошибка: ${handleSupabaseError(error)}`); 
@@ -250,16 +248,9 @@ const App: React.FC = () => {
       bus_plate: tripData.busPlate,
       type: tripData.type
     };
-
     const { error } = await supabase.from('trips').upsert([dbTrip]);
-    
-    if (error) {
-      alert(`Ошибка: ${handleSupabaseError(error)}`);
-    } else {
-      setDriverSubView('dashboard');
-      setEditingTrip(null);
-      fetchData();
-    }
+    if (error) alert(`Ошибка: ${handleSupabaseError(error)}`);
+    else { setDriverSubView('dashboard'); setEditingTrip(null); fetchData(); }
   };
 
   const handleDeleteTrip = async (tripId: string) => {
@@ -280,10 +271,7 @@ const App: React.FC = () => {
       timestamp: new Date().toISOString()
     };
     const { error } = await supabase.from('bookings').insert([newBookingRaw]);
-    if (error) { 
-      alert(`Ошибка: ${handleSupabaseError(error)}`); 
-      return; 
-    }
+    if (error) { alert(`Ошибка: ${handleSupabaseError(error)}`); return; }
     setPassengerSubView('bookings');
     fetchData();
   };
@@ -297,13 +285,8 @@ const App: React.FC = () => {
   const updateBookingStatus = async (bookingId: string, status: BookingStatus) => {
     const booking = bookings.find(b => b.id === bookingId);
     if (!booking) return;
-    
     const { error } = await supabase.from('bookings').update({ status }).eq('id', bookingId);
-    if (error) { 
-      alert(`Ошибка: ${handleSupabaseError(error)}`); 
-      return; 
-    }
-
+    if (error) { alert(`Ошибка: ${handleSupabaseError(error)}`); return; }
     const trip = trips.find(t => t.id === booking.tripId);
     if (status === BookingStatus.APPROVED && trip) {
         await supabase.from('trips').update({ available_seats: Math.max(0, trip.availableSeats - 1) }).eq('id', trip.id);
@@ -311,23 +294,11 @@ const App: React.FC = () => {
     fetchData();
   };
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: 'Kavkaz Express',
-        text: 'Бронируйте поездки Ингушетия — Москва онлайн!',
-        url: window.location.href,
-      });
-    } else {
-      alert('Скопируйте ссылку из адресной строки');
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-bg-light gap-4">
         <div className="size-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Подключение к базе...</p>
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Загрузка данных...</p>
       </div>
     );
   }
@@ -336,17 +307,24 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-bg-light px-6 text-center gap-6">
         <div className="size-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
-          <span className="material-symbols-outlined text-4xl">cloud_off</span>
+          <span className="material-symbols-outlined text-4xl">database_off</span>
         </div>
         <div className="space-y-2">
-           <h2 className="text-xl font-black">Ошибка соединения</h2>
+           <h2 className="text-xl font-black">Нужна настройка базы</h2>
            <p className="text-sm text-slate-500">{errorStatus}</p>
         </div>
+        {!isDbReady && (
+          <div className="bg-slate-900 text-slate-300 p-4 rounded-2xl text-[10px] text-left font-mono overflow-auto max-h-40 w-full">
+            -- Выполните этот SQL в панели Supabase:<br/>
+            CREATE TABLE users (id TEXT PRIMARY KEY, ...);
+            -- [Скрипт в сообщении выше]
+          </div>
+        )}
         <button 
           onClick={() => { setErrorStatus(null); fetchData(); }}
-          className="bg-primary text-white px-8 py-3 rounded-xl font-bold active:scale-95 transition-transform"
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-xl shadow-primary/20"
         >
-          Попробовать снова
+          Обновить и проверить связь
         </button>
       </div>
     );
@@ -393,10 +371,6 @@ const App: React.FC = () => {
                   <span className="material-symbols-outlined">confirmation_number</span>
                   <span className="text-[10px] font-bold">Билеты</span>
                 </button>
-                <button onClick={handleShare} className="flex flex-col items-center text-slate-400">
-                  <span className="material-symbols-outlined">share</span>
-                  <span className="text-[10px] font-bold">Поделиться</span>
-                </button>
                 <button onClick={handleLogout} className="flex flex-col items-center text-slate-400">
                   <span className="material-symbols-outlined">logout</span>
                   <span className="text-[10px] font-bold">Выход</span>
@@ -432,10 +406,6 @@ const App: React.FC = () => {
                 <button onClick={() => { setEditingTrip(null); setDriverSubView('create-trip'); }} className={`flex flex-col items-center ${driverSubView === 'create-trip' ? 'text-primary' : 'text-slate-400'}`}>
                   <span className="material-symbols-outlined">add_box</span>
                   <span className="text-[10px] font-bold">Новый</span>
-                </button>
-                <button onClick={handleShare} className="flex flex-col items-center text-slate-400">
-                  <span className="material-symbols-outlined">share</span>
-                  <span className="text-[10px] font-bold">Поделиться</span>
                 </button>
                 <button onClick={handleLogout} className="flex flex-col items-center text-slate-400">
                   <span className="material-symbols-outlined">logout</span>
