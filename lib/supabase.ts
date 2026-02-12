@@ -1,7 +1,14 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://avbgagesrffbuojrjipy.supabase.co'; 
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YmdhZ2VzcmZmYnVvanJqaXB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4Njg4NTYsImV4cCI6MjA4NjQ0NDg1Nn0.fOGZmfmTKm9LgOl4jBfCFUWsDprgX-1QM1KnIqYIJBI';
+// Данные берутся из окружения (Vercel/Vite)
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Экспортируем флаг проверки конфигурации
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('https://'));
+
+// Создаем клиент только если есть валидный URL
+export const supabase = isSupabaseConfigured 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null as any; // Приводим к any, чтобы не ломать типы в местах использования

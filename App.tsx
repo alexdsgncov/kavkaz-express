@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, Trip, Booking, BookingStatus, Notification, NotificationType } from './types';
-import { supabase } from './lib/supabase';
-import { GoogleGenAI } from "@google/genai";
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import Login from './views/Login';
 import RoleSelection from './views/RoleSelection';
 import ProfileSetup from './views/ProfileSetup';
@@ -16,9 +15,6 @@ import NotificationsView from './views/Notifications';
 
 const SESSION_KEY = 'kavkaz_express_session';
 
-// Получаем API ключ из переменных окружения (Vercel/Local)
-const GEMINI_API_KEY = process.env.API_KEY || '';
-
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -27,7 +23,6 @@ const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isDbConnected, setIsDbConnected] = useState<boolean | null>(null);
   
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [passengerSubView, setPassengerSubView] = useState<string>('home');
@@ -36,53 +31,31 @@ const App: React.FC = () => {
   const [selectedTripForManage, setSelectedTripForManage] = useState<Trip | null>(null);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
-  const [travelInfo, setTravelInfo] = useState<{text: string, links: any[]} | null>(null);
-  const [isLoadingTravelInfo, setIsLoadingTravelInfo] = useState(false);
-
   const fetchData = async () => {
+    if (!isSupabaseConfigured) return;
     try {
-      const [{ data: u, error: ue }, { data: t, error: te }, { data: b, error: be }, { data: n, error: ne }] = await Promise.all([
+      const [{ data: u }, { data: t }, { data: b }, { data: n }] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('trips').select('*'),
         supabase.from('bookings').select('*'),
         supabase.from('notifications').select('*').order('timestamp', { ascending: false })
       ]);
       
-      if (ue || te || be || ne) {
-        setIsDbConnected(false);
-        return;
-      }
-      
       setAllUsers(u || []);
       setTrips(t || []);
       setBookings(b || []);
       setNotifications(n || []);
-      setIsDbConnected(true);
     } catch (error: any) {
-      setIsDbConnected(false);
-    }
-  };
-
-  const getTravelInfo = async () => {
-    if (!GEMINI_API_KEY) return;
-    setIsLoadingTravelInfo(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: "Дай краткую сводку для пассажиров автобуса: погода в Назрани и Москве на сегодня и состояние трассы М-4 Дон (пробки, ремонты). Будь лаконичен.",
-        config: { tools: [{googleSearch: {}}] },
-      });
-      const links = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-      setTravelInfo({ text: response.text || '', links });
-    } catch (e) {
-      setTravelInfo({ text: "Информация о дороге временно недоступна.", links: [] });
-    } finally {
-      setIsLoadingTravelInfo(false);
+      console.error("Data fetch error:", error);
     }
   };
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setIsLoading(false);
+      return;
+    }
+
     const init = async () => {
       setIsLoading(true);
       await fetchData();
@@ -96,7 +69,6 @@ const App: React.FC = () => {
         else setView('main');
       }
       setIsLoading(false);
-      getTravelInfo();
     };
 
     init();
@@ -107,6 +79,33 @@ const App: React.FC = () => {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 text-center">
+        <div className="size-20 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mb-6">
+          <span className="material-symbols-outlined text-4xl">settings_suggest</span>
+        </div>
+        <h1 className="text-2xl font-black text-slate-900 mb-4">Настройка базы данных</h1>
+        <p className="text-slate-500 mb-8 max-w-xs">
+          Приложению нужны ключи <b>Supabase</b> для работы. Пожалуйста, добавьте их в переменные окружения Vercel:
+        </p>
+        <div className="w-full max-w-xs space-y-3">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Key 1</p>
+            <p className="text-xs font-mono break-all">SUPABASE_URL</p>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Key 2</p>
+            <p className="text-xs font-mono break-all">SUPABASE_ANON_KEY</p>
+          </div>
+        </div>
+        <p className="mt-8 text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+          Затем выполните Redeploy в Vercel
+        </p>
+      </div>
+    );
+  }
 
   const handleLogin = async (email: string, phone: string, password?: string) => {
     try {
@@ -260,8 +259,6 @@ const App: React.FC = () => {
                   onOpenNotifications={() => setGlobalSubView('notifications')}
                   onSearch={(date) => { setSelectedDate(date); setPassengerSubView('trip-list'); }} 
                   onNavigateBookings={() => setPassengerSubView('bookings')}
-                  travelInfo={travelInfo}
-                  isLoadingInfo={isLoadingTravelInfo}
                 />
               )}
               {passengerSubView === 'trip-list' && (

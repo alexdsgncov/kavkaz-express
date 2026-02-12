@@ -8,8 +8,6 @@ interface PassengerHomeProps {
   onOpenNotifications: () => void;
   onSearch: (date: string) => void;
   onNavigateBookings: () => void;
-  travelInfo?: {text: string, links: any[]} | null;
-  isLoadingInfo?: boolean;
 }
 
 const PassengerHome: React.FC<PassengerHomeProps> = ({ 
@@ -17,9 +15,7 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({
   unreadNotifications, 
   onOpenNotifications, 
   onSearch, 
-  onNavigateBookings,
-  travelInfo,
-  isLoadingInfo
+  onNavigateBookings
 }) => {
   const [date, setDate] = React.useState(new Date().toISOString().split('T')[0]);
 
@@ -90,43 +86,6 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({
           <span className="material-symbols-outlined">trending_flat</span>
         </button>
       </div>
-
-      {/* Блок актуальной информации о дороге (Gemini Grounding) */}
-      <section className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-        <div className="bg-slate-900 p-3 px-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-amber-400 text-sm">info</span>
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">Дорожная обстановка</span>
-          </div>
-          {isLoadingInfo && <div className="size-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>}
-        </div>
-        <div className="p-4 bg-white">
-          {isLoadingInfo ? (
-            <div className="space-y-2">
-              <div className="h-3 w-3/4 bg-slate-100 rounded animate-pulse"></div>
-              <div className="h-3 w-full bg-slate-100 rounded animate-pulse"></div>
-            </div>
-          ) : (
-            <>
-              <p className="text-xs text-slate-600 leading-relaxed italic">
-                {travelInfo?.text || "Загружаем информацию о трассе и погоде..."}
-              </p>
-              {travelInfo?.links && travelInfo.links.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-slate-50 flex flex-wrap gap-2">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase">Источники:</span>
-                  {travelInfo.links.map((chunk: any, i: number) => (
-                    chunk.web && (
-                      <a key={i} href={chunk.web.uri} target="_blank" rel="noreferrer" className="text-[9px] text-primary font-bold underline truncate max-w-[120px]">
-                        {chunk.web.title || "Подробнее"}
-                      </a>
-                    )
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </section>
 
       <section className="bg-primary/5 rounded-2xl p-5 border border-primary/10 flex items-start gap-4">
         <div className="bg-primary text-white p-2 rounded-lg">
