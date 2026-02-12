@@ -19,6 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <script>
+        window.process = { env: {} }; // Заглушка для process.env до загрузки Vite
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -49,7 +50,6 @@
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: contain;
             user-select: none;
-            /* Учет безопасных зон для iPhone с "челкой" */
             padding-top: env(safe-area-inset-top);
         }
         input, textarea {
@@ -66,17 +66,20 @@
 <script type="importmap">
 {
   "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
-    "vite": "https://esm.sh/vite@^7.3.1"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.95.3"
   }
 }
 </script>
 </head>
 <body class="bg-bg-light text-slate-900 antialiased font-sans">
     <div id="root"></div>
+    <!-- Точка входа для Vite -->
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>
