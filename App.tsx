@@ -45,7 +45,7 @@ const App: React.FC = () => {
       setBookings(b || []);
       setNotifications(n || []);
     } catch (error: any) {
-      console.error("Data fetch error:", error);
+      console.warn("Could not connect to Supabase. Check your keys.");
     }
   };
 
@@ -56,17 +56,22 @@ const App: React.FC = () => {
       
       const sessionData = localStorage.getItem(SESSION_KEY);
       if (sessionData) {
-        const activeUser = JSON.parse(sessionData);
-        setUser(activeUser);
-        if (activeUser.role === UserRole.UNSET) setView('role-selection');
-        else if (!activeUser.firstName) setView('profile-setup');
-        else setView('main');
+        try {
+          const activeUser = JSON.parse(sessionData);
+          setUser(activeUser);
+          if (activeUser.role === UserRole.UNSET) setView('role-selection');
+          else if (!activeUser.firstName) setView('profile-setup');
+          else setView('main');
+        } catch(e) {
+          setView('login');
+        }
       }
       setIsLoading(false);
     };
 
     init();
 
+    // Подписка на изменения (только если supabase доступен)
     const channel = supabase.channel('db-changes')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData())
       .subscribe();
@@ -104,7 +109,7 @@ const App: React.FC = () => {
       else if (!finalUser.firstName) setView('profile-setup');
       else setView('main');
     } catch (e) {
-      alert('Ошибка авторизации. Попробуйте позже.');
+      alert('Ошибка авторизации. Проверьте подключение к базе данных.');
     }
   };
 
