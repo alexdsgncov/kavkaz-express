@@ -1,0 +1,10 @@
+{
+  "name": "Kavkaz-Express Booking",
+  "short_name": "Kavkaz-Bus",
+  "description": "Сервис бронирования автобусных рейсов Ингушетия — Москва. MVP версия.",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#137fec",
+  "background_color": "#f6f7f8",
+  "requestFramePermissions": []
+}
