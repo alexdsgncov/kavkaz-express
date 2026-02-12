@@ -31,7 +31,6 @@ const App: React.FC = () => {
   const [selectedTripForManage, setSelectedTripForManage] = useState<Trip | null>(null);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
-  // Маппинг данных из БД в интерфейс приложения
   const mapUser = (u: any): User => ({
     id: u.id,
     email: u.email,
@@ -85,19 +84,24 @@ const App: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [{ data: u }, { data: t }, { data: b }, { data: n }] = await Promise.all([
+      const [{ data: u, error: ue }, { data: t, error: te }, { data: b, error: be }, { data: n, error: ne }] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('trips').select('*'),
         supabase.from('bookings').select('*'),
         supabase.from('notifications').select('*').order('timestamp', { ascending: false })
       ]);
       
+      if (ue) console.error("Users fetch error:", ue);
+      if (te) console.error("Trips fetch error:", te);
+      if (be) console.error("Bookings fetch error:", be);
+      if (ne) console.error("Notifications fetch error:", ne);
+
       setAllUsers((u || []).map(mapUser));
       setTrips((t || []).map(mapTrip));
       setBookings((b || []).map(mapBooking));
       setNotifications((n || []).map(mapNotification));
     } catch (error: any) {
-      console.error("Fetch error:", error);
+      console.error("Critical Fetch Error:", error);
     }
   };
 
@@ -110,15 +114,16 @@ const App: React.FC = () => {
       if (sessionData) {
         try {
           const activeUser = JSON.parse(sessionData);
-          // Синхронизируем с БД актуальные данные пользователя
-          const { data: dbUser } = await supabase.from('users').select('*').eq('id', activeUser.id).single();
-          if (dbUser) {
+          const { data: dbUser, error: findError } = await supabase.from('users').select('*').eq('id', activeUser.id).single();
+          
+          if (dbUser && !findError) {
             const mapped = mapUser(dbUser);
             setUser(mapped);
             if (mapped.role === UserRole.UNSET) setView('role-selection');
             else if (!mapped.firstName) setView('profile-setup');
             else setView('main');
           } else {
+            console.warn("Session user not found in DB or error:", findError);
             setView('login');
           }
         } catch(e) {
@@ -140,13 +145,17 @@ const App: React.FC = () => {
   const handleLogin = async (email: string, phone: string, password?: string) => {
     try {
       const trimmedEmail = email.toLowerCase();
-      const { data: existingUsers } = await supabase.from('users').select('*').eq('email', trimmedEmail);
+      const { data: existingUsers, error: findError } = await supabase.from('users').select('*').eq('email', trimmedEmail);
+      
+      if (findError) throw findError;
+      
       const existingUser = existingUsers?.[0];
       let finalUser: User;
 
       if (existingUser) {
         const updateData = { phone_number: phone, password: password || existingUser.password };
-        await supabase.from('users').update(updateData).eq('id', existingUser.id);
+        const { error: updateError } = await supabase.from('users').update(updateData).eq('id', existingUser.id);
+        if (updateError) throw updateError;
         finalUser = mapUser({ ...existingUser, ...updateData });
       } else {
         const id = 'user_' + Math.random().toString(36).substr(2, 9);
@@ -158,7 +167,8 @@ const App: React.FC = () => {
           role: UserRole.UNSET,
           password: password
         };
-        await supabase.from('users').insert([newUserRaw]);
+        const { error: insertError } = await supabase.from('users').insert([newUserRaw]);
+        if (insertError) throw insertError;
         finalUser = mapUser(newUserRaw);
       }
 
@@ -168,15 +178,20 @@ const App: React.FC = () => {
       if (finalUser.role === UserRole.UNSET) setView('role-selection');
       else if (!finalUser.firstName) setView('profile-setup');
       else setView('main');
-    } catch (e) {
-      alert('Ошибка авторизации. Проверьте подключение к базе данных.');
+    } catch (e: any) {
+      console.error("Login process error:", e);
+      alert(`Ошибка: ${e.message || 'Не удалось войти'}`);
     }
   };
 
   const handleRoleSelect = async (role: UserRole) => {
     if (!user) return;
     const { error } = await supabase.from('users').update({ role }).eq('id', user.id);
-    if (error) { alert('Ошибка сохранения роли'); return; }
+    if (error) { 
+      console.error("Role update error:", error);
+      alert(`Ошибка сохранения роли: ${error.message}`); 
+      return; 
+    }
     const updated = { ...user, role };
     setUser(updated);
     localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
@@ -193,7 +208,11 @@ const App: React.FC = () => {
       full_name: fullName 
     };
     const { error } = await supabase.from('users').update(updateDataRaw).eq('id', user.id);
-    if (error) { alert('Ошибка сохранения профиля'); return; }
+    if (error) { 
+      console.error("Profile save error:", error);
+      alert(`Ошибка сохранения профиля: ${error.message}`); 
+      return; 
+    }
     const updated = { ...user, firstName, lastName, middleName, fullName };
     setUser(updated);
     localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
@@ -207,7 +226,6 @@ const App: React.FC = () => {
   };
 
   const handleSaveTrip = async (tripData: Trip) => {
-    // Преобразуем данные обратно в snake_case для БД
     const dbTrip = {
       id: tripData.id,
       driver_id: tripData.driverId,
@@ -255,7 +273,11 @@ const App: React.FC = () => {
       timestamp: new Date().toISOString()
     };
     const { error } = await supabase.from('bookings').insert([newBookingRaw]);
-    if (error) { alert('Ошибка бронирования'); return; }
+    if (error) { 
+      console.error("Booking request error:", error);
+      alert(`Ошибка бронирования: ${error.message}`); 
+      return; 
+    }
     setPassengerSubView('bookings');
     fetchData();
   };
@@ -271,7 +293,11 @@ const App: React.FC = () => {
     if (!booking) return;
     
     const { error } = await supabase.from('bookings').update({ status }).eq('id', bookingId);
-    if (error) { alert('Ошибка обновления статуса'); return; }
+    if (error) { 
+      console.error("Status update error:", error);
+      alert(`Ошибка обновления статуса: ${error.message}`); 
+      return; 
+    }
 
     const trip = trips.find(t => t.id === booking.tripId);
     if (status === BookingStatus.APPROVED && trip) {
