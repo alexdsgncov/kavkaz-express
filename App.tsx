@@ -31,6 +31,58 @@ const App: React.FC = () => {
   const [selectedTripForManage, setSelectedTripForManage] = useState<Trip | null>(null);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
+  // Маппинг данных из БД в интерфейс приложения
+  const mapUser = (u: any): User => ({
+    id: u.id,
+    email: u.email,
+    phoneNumber: u.phone_number,
+    role: u.role,
+    fullName: u.full_name,
+    password: u.password,
+    firstName: u.first_name,
+    lastName: u.last_name,
+    middleName: u.middle_name,
+    avatarUrl: u.avatar_url,
+    carInfo: u.car_info
+  });
+
+  const mapTrip = (t: any): Trip => ({
+    id: t.id,
+    driverId: t.driver_id,
+    date: t.date,
+    price: t.price,
+    totalSeats: t.total_seats,
+    availableSeats: t.available_seats,
+    from: t.from,
+    to: t.to,
+    departureAddress: t.departure_address,
+    arrivalAddress: t.arrival_address,
+    departureTime: t.departure_time,
+    arrivalTime: t.arrival_time,
+    busPlate: t.bus_plate,
+    type: t.type
+  });
+
+  const mapBooking = (b: any): Booking => ({
+    id: b.id,
+    tripId: b.trip_id,
+    passengerId: b.passenger_id,
+    passengerName: b.passenger_name,
+    status: b.status,
+    timestamp: b.timestamp
+  });
+
+  const mapNotification = (n: any): Notification => ({
+    id: n.id,
+    userId: n.user_id,
+    title: n.title,
+    message: n.message,
+    type: n.type,
+    timestamp: n.timestamp,
+    isRead: n.is_read,
+    relatedId: n.related_id
+  });
+
   const fetchData = async () => {
     try {
       const [{ data: u }, { data: t }, { data: b }, { data: n }] = await Promise.all([
@@ -40,12 +92,12 @@ const App: React.FC = () => {
         supabase.from('notifications').select('*').order('timestamp', { ascending: false })
       ]);
       
-      setAllUsers(u || []);
-      setTrips(t || []);
-      setBookings(b || []);
-      setNotifications(n || []);
+      setAllUsers((u || []).map(mapUser));
+      setTrips((t || []).map(mapTrip));
+      setBookings((b || []).map(mapBooking));
+      setNotifications((n || []).map(mapNotification));
     } catch (error: any) {
-      console.warn("Could not connect to Supabase. Check your keys.");
+      console.error("Fetch error:", error);
     }
   };
 
@@ -58,10 +110,17 @@ const App: React.FC = () => {
       if (sessionData) {
         try {
           const activeUser = JSON.parse(sessionData);
-          setUser(activeUser);
-          if (activeUser.role === UserRole.UNSET) setView('role-selection');
-          else if (!activeUser.firstName) setView('profile-setup');
-          else setView('main');
+          // Синхронизируем с БД актуальные данные пользователя
+          const { data: dbUser } = await supabase.from('users').select('*').eq('id', activeUser.id).single();
+          if (dbUser) {
+            const mapped = mapUser(dbUser);
+            setUser(mapped);
+            if (mapped.role === UserRole.UNSET) setView('role-selection');
+            else if (!mapped.firstName) setView('profile-setup');
+            else setView('main');
+          } else {
+            setView('login');
+          }
         } catch(e) {
           setView('login');
         }
@@ -71,7 +130,6 @@ const App: React.FC = () => {
 
     init();
 
-    // Подписка на изменения (только если supabase доступен)
     const channel = supabase.channel('db-changes')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData())
       .subscribe();
@@ -81,25 +139,27 @@ const App: React.FC = () => {
 
   const handleLogin = async (email: string, phone: string, password?: string) => {
     try {
-      const { data: existingUsers } = await supabase.from('users').select('*').eq('email', email.toLowerCase());
+      const trimmedEmail = email.toLowerCase();
+      const { data: existingUsers } = await supabase.from('users').select('*').eq('email', trimmedEmail);
       const existingUser = existingUsers?.[0];
       let finalUser: User;
 
       if (existingUser) {
-        const updatedUser = { ...existingUser, phoneNumber: phone, password: password || existingUser.password };
-        await supabase.from('users').update(updatedUser).eq('id', existingUser.id);
-        finalUser = updatedUser;
+        const updateData = { phone_number: phone, password: password || existingUser.password };
+        await supabase.from('users').update(updateData).eq('id', existingUser.id);
+        finalUser = mapUser({ ...existingUser, ...updateData });
       } else {
-        const newUser: User = {
-          id: 'user_' + Math.random().toString(36).substr(2, 9),
-          email: email.toLowerCase(),
-          phoneNumber: phone,
-          fullName: email.split('@')[0],
+        const id = 'user_' + Math.random().toString(36).substr(2, 9);
+        const newUserRaw = {
+          id: id,
+          email: trimmedEmail,
+          phone_number: phone,
+          full_name: email.split('@')[0],
           role: UserRole.UNSET,
           password: password
         };
-        await supabase.from('users').insert([newUser]);
-        finalUser = newUser;
+        await supabase.from('users').insert([newUserRaw]);
+        finalUser = mapUser(newUserRaw);
       }
 
       setUser(finalUser);
@@ -115,7 +175,8 @@ const App: React.FC = () => {
 
   const handleRoleSelect = async (role: UserRole) => {
     if (!user) return;
-    await supabase.from('users').update({ role }).eq('id', user.id);
+    const { error } = await supabase.from('users').update({ role }).eq('id', user.id);
+    if (error) { alert('Ошибка сохранения роли'); return; }
     const updated = { ...user, role };
     setUser(updated);
     localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
@@ -125,9 +186,15 @@ const App: React.FC = () => {
   const handleProfileSave = async (firstName: string, lastName: string, middleName: string) => {
     if (!user) return;
     const fullName = `${lastName} ${firstName} ${middleName}`.trim();
-    const updateData = { firstName, lastName, middleName, fullName };
-    await supabase.from('users').update(updateData).eq('id', user.id);
-    const updated = { ...user, ...updateData };
+    const updateDataRaw = { 
+      first_name: firstName, 
+      last_name: lastName, 
+      middle_name: middleName, 
+      full_name: fullName 
+    };
+    const { error } = await supabase.from('users').update(updateDataRaw).eq('id', user.id);
+    if (error) { alert('Ошибка сохранения профиля'); return; }
+    const updated = { ...user, firstName, lastName, middleName, fullName };
     setUser(updated);
     localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
     setView('main');
@@ -140,8 +207,30 @@ const App: React.FC = () => {
   };
 
   const handleSaveTrip = async (tripData: Trip) => {
-    const { error } = await supabase.from('trips').upsert([tripData]);
-    if (!error) {
+    // Преобразуем данные обратно в snake_case для БД
+    const dbTrip = {
+      id: tripData.id,
+      driver_id: tripData.driverId,
+      date: tripData.date,
+      price: tripData.price,
+      total_seats: tripData.totalSeats,
+      available_seats: tripData.availableSeats,
+      from: tripData.from,
+      to: tripData.to,
+      departure_address: tripData.departureAddress,
+      arrival_address: tripData.arrivalAddress,
+      departure_time: tripData.departureTime,
+      arrival_time: tripData.arrivalTime,
+      bus_plate: tripData.busPlate,
+      type: tripData.type
+    };
+
+    const { error } = await supabase.from('trips').upsert([dbTrip]);
+    
+    if (error) {
+      console.error("Trip save error:", error);
+      alert(`Ошибка при сохранении рейса: ${error.message}`);
+    } else {
       setDriverSubView('dashboard');
       setEditingTrip(null);
       fetchData();
@@ -150,22 +239,23 @@ const App: React.FC = () => {
 
   const handleDeleteTrip = async (tripId: string) => {
     if (!confirm('Удалить рейс?')) return;
-    await supabase.from('bookings').delete().eq('tripId', tripId);
+    await supabase.from('bookings').delete().eq('trip_id', tripId);
     await supabase.from('trips').delete().eq('id', tripId);
     fetchData();
   };
 
   const handleRequestBooking = async (tripId: string) => {
     if (!user) return;
-    const newBooking: Booking = {
+    const newBookingRaw = {
       id: 'book_' + Math.random().toString(36).substr(2, 9),
-      tripId,
-      passengerId: user.id,
-      passengerName: user.fullName,
+      trip_id: tripId,
+      passenger_id: user.id,
+      passenger_name: user.fullName,
       status: BookingStatus.PENDING,
       timestamp: new Date().toISOString()
     };
-    await supabase.from('bookings').insert([newBooking]);
+    const { error } = await supabase.from('bookings').insert([newBookingRaw]);
+    if (error) { alert('Ошибка бронирования'); return; }
     setPassengerSubView('bookings');
     fetchData();
   };
@@ -179,10 +269,13 @@ const App: React.FC = () => {
   const updateBookingStatus = async (bookingId: string, status: BookingStatus) => {
     const booking = bookings.find(b => b.id === bookingId);
     if (!booking) return;
-    await supabase.from('bookings').update({ status }).eq('id', bookingId);
+    
+    const { error } = await supabase.from('bookings').update({ status }).eq('id', bookingId);
+    if (error) { alert('Ошибка обновления статуса'); return; }
+
     const trip = trips.find(t => t.id === booking.tripId);
     if (status === BookingStatus.APPROVED && trip) {
-        await supabase.from('trips').update({ availableSeats: Math.max(0, trip.availableSeats - 1) }).eq('id', trip.id);
+        await supabase.from('trips').update({ available_seats: Math.max(0, trip.availableSeats - 1) }).eq('id', trip.id);
     }
     fetchData();
   };
@@ -203,6 +296,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-bg-light gap-4">
         <div className="size-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Загрузка данных...</p>
       </div>
     );
   }
@@ -219,8 +313,8 @@ const App: React.FC = () => {
             <NotificationsView 
               notifications={notifications.filter(n => n.userId === user?.id)} 
               onBack={() => setGlobalSubView(null)} 
-              onMarkAsRead={(id) => supabase.from('notifications').update({isRead: true}).eq('id', id)} 
-              onClearAll={() => supabase.from('notifications').delete().eq('userId', user?.id)} 
+              onMarkAsRead={(id) => supabase.from('notifications').update({is_read: true}).eq('id', id)} 
+              onClearAll={() => supabase.from('notifications').delete().eq('user_id', user?.id)} 
             />
           ) : user?.role === UserRole.PASSENGER ? (
             <div className="flex-1 overflow-hidden flex flex-col pb-20">
