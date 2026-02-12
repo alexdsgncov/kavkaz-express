@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, Trip, Booking, BookingStatus, Notification, NotificationType } from './types';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { supabase } from './lib/supabase';
 import Login from './views/Login';
 import RoleSelection from './views/RoleSelection';
 import ProfileSetup from './views/ProfileSetup';
@@ -32,7 +32,6 @@ const App: React.FC = () => {
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
   const fetchData = async () => {
-    if (!isSupabaseConfigured) return;
     try {
       const [{ data: u }, { data: t }, { data: b }, { data: n }] = await Promise.all([
         supabase.from('users').select('*'),
@@ -51,11 +50,6 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setIsLoading(false);
-      return;
-    }
-
     const init = async () => {
       setIsLoading(true);
       await fetchData();
@@ -79,33 +73,6 @@ const App: React.FC = () => {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
-
-  if (!isSupabaseConfigured) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 text-center">
-        <div className="size-20 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mb-6">
-          <span className="material-symbols-outlined text-4xl">settings_suggest</span>
-        </div>
-        <h1 className="text-2xl font-black text-slate-900 mb-4">Настройка базы данных</h1>
-        <p className="text-slate-500 mb-8 max-w-xs">
-          Приложению нужны ключи <b>Supabase</b> для работы. Пожалуйста, добавьте их в переменные окружения Vercel:
-        </p>
-        <div className="w-full max-w-xs space-y-3">
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Key 1</p>
-            <p className="text-xs font-mono break-all">SUPABASE_URL</p>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-left">
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Key 2</p>
-            <p className="text-xs font-mono break-all">SUPABASE_ANON_KEY</p>
-          </div>
-        </div>
-        <p className="mt-8 text-[10px] text-slate-400 uppercase tracking-widest font-bold">
-          Затем выполните Redeploy в Vercel
-        </p>
-      </div>
-    );
-  }
 
   const handleLogin = async (email: string, phone: string, password?: string) => {
     try {
