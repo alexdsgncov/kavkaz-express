@@ -85,13 +85,17 @@ const App: React.FC = () => {
   });
 
   const handleSupabaseError = (e: any) => {
-    console.error("Supabase Error:", e);
-    if (e.message === 'Failed to fetch') return 'Сетевая ошибка. Проверьте VPN/AdBlock.';
+    console.error("Supabase Error Context:", e);
+    // Проверка на типичные сетевые ошибки
+    if (e.message === 'Failed to fetch' || e.name === 'TypeError') {
+      return 'Сетевая ошибка. Отключите VPN или AdBlock (блокировщик рекламы).';
+    }
+    // Ошибка отсутствия таблицы
     if (e.code === '42P01') {
       setIsDbReady(false);
-      return 'Таблицы в Supabase не созданы. Выполните SQL-скрипт в панели управления.';
+      return 'Таблицы в базе данных еще не созданы. Запустите SQL-скрипт в панели управления Supabase.';
     }
-    return e.message || 'Ошибка базы данных';
+    return e.message || 'Произошла непредвиденная ошибка базы данных.';
   };
 
   const fetchData = async () => {
@@ -129,6 +133,7 @@ const App: React.FC = () => {
       if (sessionData) {
         try {
           const activeUser = JSON.parse(sessionData);
+          // Используем maybeSingle чтобы не вызывать ошибку если пользователя нет
           const { data: dbUser, error: findError } = await supabase.from('users').select('*').eq('id', activeUser.id).maybeSingle();
           
           if (dbUser && !findError) {
@@ -149,8 +154,12 @@ const App: React.FC = () => {
 
     init();
 
-    const channel = supabase.channel('db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData())
+    // Подписка на обновления
+    const channel = supabase.channel('realtime-db')
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+         console.log("DB Change detected, syncing...");
+         fetchData();
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -193,7 +202,7 @@ const App: React.FC = () => {
       else if (!finalUser.firstName) setView('profile-setup');
       else setView('main');
     } catch (e: any) {
-      alert(`Ошибка авторизации: ${handleSupabaseError(e)}`);
+      alert(`Ошибка: ${handleSupabaseError(e)}`);
     }
   };
 
@@ -298,34 +307,42 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-bg-light gap-4">
         <div className="size-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Загрузка данных...</p>
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Проверка связи...</p>
       </div>
     );
   }
 
   if (errorStatus) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-bg-light px-6 text-center gap-6">
-        <div className="size-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
-          <span className="material-symbols-outlined text-4xl">database_off</span>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-bg-light px-6 text-center gap-6 animate-in fade-in">
+        <div className="size-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center shadow-inner">
+          <span className="material-symbols-outlined text-5xl">cloud_off</span>
         </div>
-        <div className="space-y-2">
-           <h2 className="text-xl font-black">Нужна настройка базы</h2>
-           <p className="text-sm text-slate-500">{errorStatus}</p>
+        <div className="space-y-3">
+           <h2 className="text-2xl font-black text-slate-900">Ошибка подключения</h2>
+           <p className="text-sm text-slate-500 max-w-xs">{errorStatus}</p>
         </div>
+        
         {!isDbReady && (
-          <div className="bg-slate-900 text-slate-300 p-4 rounded-2xl text-[10px] text-left font-mono overflow-auto max-h-40 w-full">
-            -- Выполните этот SQL в панели Supabase:<br/>
-            CREATE TABLE users (id TEXT PRIMARY KEY, ...);
-            -- [Скрипт в сообщении выше]
+          <div className="w-full bg-slate-900 text-slate-400 p-4 rounded-2xl text-[10px] text-left font-mono space-y-2">
+            <p className="text-slate-200 border-b border-slate-800 pb-1 mb-2 font-bold uppercase tracking-widest">Инструкция:</p>
+            <p>1. Откройте SQL Editor в Supabase</p>
+            <p>2. Скопируйте скрипт из чата</p>
+            <p>3. Нажмите кнопку Run</p>
           </div>
         )}
-        <button 
-          onClick={() => { setErrorStatus(null); fetchData(); }}
-          className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-xl shadow-primary/20"
-        >
-          Обновить и проверить связь
-        </button>
+
+        <div className="w-full space-y-3">
+          <button 
+            onClick={() => { setErrorStatus(null); fetchData(); }}
+            className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-xl shadow-primary/20 active:scale-95 transition-all"
+          >
+            Попробовать снова
+          </button>
+          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">
+            Если ошибка не исчезает — проверьте блокировщики рекламы
+          </p>
+        </div>
       </div>
     );
   }
