@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorStatus, setErrorStatus] = useState<string | null>(null);
   
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [passengerSubView, setPassengerSubView] = useState<string>('home');
@@ -82,6 +83,14 @@ const App: React.FC = () => {
     relatedId: n.related_id
   });
 
+  const handleSupabaseError = (e: any) => {
+    console.error("Supabase Error Context:", e);
+    if (e.message === 'Failed to fetch') {
+      return 'Нет связи с сервером базы данных. Проверьте интернет или отключите AdBlock.';
+    }
+    return e.message || 'Произошла неизвестная ошибка';
+  };
+
   const fetchData = async () => {
     try {
       const [{ data: u, error: ue }, { data: t, error: te }, { data: b, error: be }, { data: n, error: ne }] = await Promise.all([
@@ -91,16 +100,19 @@ const App: React.FC = () => {
         supabase.from('notifications').select('*').order('timestamp', { ascending: false })
       ]);
       
-      if (ue) console.error("Users fetch error:", ue);
-      if (te) console.error("Trips fetch error:", te);
-      if (be) console.error("Bookings fetch error:", be);
-      if (ne) console.error("Notifications fetch error:", ne);
+      if (ue) throw ue;
+      if (te) throw te;
+      if (be) throw be;
+      if (ne) throw ne;
 
+      setErrorStatus(null);
       setAllUsers((u || []).map(mapUser));
       setTrips((t || []).map(mapTrip));
       setBookings((b || []).map(mapBooking));
       setNotifications((n || []).map(mapNotification));
     } catch (error: any) {
+      const msg = handleSupabaseError(error);
+      setErrorStatus(msg);
       console.error("Critical Fetch Error:", error);
     }
   };
@@ -123,7 +135,6 @@ const App: React.FC = () => {
             else if (!mapped.firstName) setView('profile-setup');
             else setView('main');
           } else {
-            console.warn("Session user not found in DB or error:", findError);
             setView('login');
           }
         } catch(e) {
@@ -179,8 +190,7 @@ const App: React.FC = () => {
       else if (!finalUser.firstName) setView('profile-setup');
       else setView('main');
     } catch (e: any) {
-      console.error("Login process error:", e);
-      alert(`Ошибка: ${e.message || 'Не удалось войти'}`);
+      alert(`Ошибка: ${handleSupabaseError(e)}`);
     }
   };
 
@@ -188,8 +198,7 @@ const App: React.FC = () => {
     if (!user) return;
     const { error } = await supabase.from('users').update({ role }).eq('id', user.id);
     if (error) { 
-      console.error("Role update error:", error);
-      alert(`Ошибка сохранения роли: ${error.message}`); 
+      alert(`Ошибка: ${handleSupabaseError(error)}`); 
       return; 
     }
     const updated = { ...user, role };
@@ -209,8 +218,7 @@ const App: React.FC = () => {
     };
     const { error } = await supabase.from('users').update(updateDataRaw).eq('id', user.id);
     if (error) { 
-      console.error("Profile save error:", error);
-      alert(`Ошибка сохранения профиля: ${error.message}`); 
+      alert(`Ошибка: ${handleSupabaseError(error)}`); 
       return; 
     }
     const updated = { ...user, firstName, lastName, middleName, fullName };
@@ -246,8 +254,7 @@ const App: React.FC = () => {
     const { error } = await supabase.from('trips').upsert([dbTrip]);
     
     if (error) {
-      console.error("Trip save error:", error);
-      alert(`Ошибка при сохранении рейса: ${error.message}`);
+      alert(`Ошибка: ${handleSupabaseError(error)}`);
     } else {
       setDriverSubView('dashboard');
       setEditingTrip(null);
@@ -274,8 +281,7 @@ const App: React.FC = () => {
     };
     const { error } = await supabase.from('bookings').insert([newBookingRaw]);
     if (error) { 
-      console.error("Booking request error:", error);
-      alert(`Ошибка бронирования: ${error.message}`); 
+      alert(`Ошибка: ${handleSupabaseError(error)}`); 
       return; 
     }
     setPassengerSubView('bookings');
@@ -294,8 +300,7 @@ const App: React.FC = () => {
     
     const { error } = await supabase.from('bookings').update({ status }).eq('id', bookingId);
     if (error) { 
-      console.error("Status update error:", error);
-      alert(`Ошибка обновления статуса: ${error.message}`); 
+      alert(`Ошибка: ${handleSupabaseError(error)}`); 
       return; 
     }
 
@@ -322,7 +327,27 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-bg-light gap-4">
         <div className="size-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Загрузка данных...</p>
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Подключение к базе...</p>
+      </div>
+    );
+  }
+
+  if (errorStatus) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-bg-light px-6 text-center gap-6">
+        <div className="size-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
+          <span className="material-symbols-outlined text-4xl">cloud_off</span>
+        </div>
+        <div className="space-y-2">
+           <h2 className="text-xl font-black">Ошибка соединения</h2>
+           <p className="text-sm text-slate-500">{errorStatus}</p>
+        </div>
+        <button 
+          onClick={() => { setErrorStatus(null); fetchData(); }}
+          className="bg-primary text-white px-8 py-3 rounded-xl font-bold active:scale-95 transition-transform"
+        >
+          Попробовать снова
+        </button>
       </div>
     );
   }
