@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { User } from '../../types';
 
 interface PassengerHomeProps {
@@ -13,18 +13,6 @@ interface PassengerHomeProps {
 
 const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onShare, onNavigateBookings }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const tg = (window as any).Telegram?.WebApp;
-
-  useEffect(() => {
-    if (!tg) return;
-    tg.MainButton.setText('НАЙТИ РЕЙСЫ');
-    tg.MainButton.show();
-    tg.MainButton.onClick(() => onSearch(date));
-    return () => {
-      tg.MainButton.hide();
-      tg.MainButton.offClick(() => onSearch(date));
-    };
-  }, [tg, date, onSearch]);
 
   return (
     <div className="flex-1 px-6 pt-10 pb-10 space-y-8 overflow-y-auto no-scrollbar">
@@ -61,14 +49,23 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onShare, 
           </div>
         </div>
 
-        <div className="space-y-3">
-          <label className="text-xs font-black text-slate-400 uppercase ml-1">Дата поездки</label>
-          <input 
-            type="date" 
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full p-5 bg-slate-50 border-none rounded-2xl font-black text-lg text-slate-700 outline-none ring-2 ring-transparent focus:ring-primary/10 transition-all"
-          />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Дата поездки</label>
+            <input 
+              type="date" 
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-lg text-slate-700 outline-none ring-2 ring-transparent focus:ring-primary/10 transition-all"
+            />
+          </div>
+          
+          <button 
+            onClick={() => onSearch(date)}
+            className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all uppercase text-sm tracking-widest"
+          >
+            Найти рейсы
+          </button>
         </div>
       </div>
 
@@ -80,7 +77,7 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onShare, 
             onClick={onShare}
             className="bg-white text-primary px-6 py-3 rounded-xl font-bold text-sm shadow-xl active:scale-95 transition-all"
           >
-            Пригласить друзей
+            Поделиться
           </button>
         </div>
         <span className="material-symbols-outlined absolute -right-4 -bottom-4 text-9xl opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-500">

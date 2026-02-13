@@ -19,10 +19,7 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ user, trips, bookings
     <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar pb-20">
       <header className="flex justify-between items-center">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-             <div className="size-2 bg-success rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cloud DB Online</p>
-          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Личный кабинет водителя</p>
           <h1 className="text-2xl font-black">{user.fullName}</h1>
         </div>
         <button onClick={onCreateTrip} className="size-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
@@ -33,8 +30,9 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ user, trips, bookings
       <div className="space-y-4">
         {trips.length === 0 ? (
           <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[40px] text-slate-300">
-             <span className="material-symbols-outlined text-6xl">database_off</span>
+             <span className="material-symbols-outlined text-6xl">directions_bus</span>
              <p className="font-bold mt-2">Рейсов еще нет</p>
+             <button onClick={onCreateTrip} className="mt-4 text-primary font-bold text-sm">Создать первый рейс</button>
           </div>
         ) : (
           trips.map(trip => {
@@ -48,9 +46,9 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ user, trips, bookings
                          <span className="text-lg">{new Date(trip.date).getDate()}</span>
                       </div>
                       <div>
-                        <p className="font-black text-slate-900 leading-none">Назрань — Москва</p>
+                        <p className="font-black text-slate-900 leading-none">Ингушетия — Москва</p>
                         <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-slate-400">
-                          <span className="material-symbols-outlined text-xs">history</span>
+                          <span className="material-symbols-outlined text-xs">directions_bus</span>
                           <span>{trip.busPlate.toUpperCase()}</span>
                         </div>
                       </div>

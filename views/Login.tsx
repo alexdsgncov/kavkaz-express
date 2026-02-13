@@ -25,8 +25,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="size-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary mb-6">
         <span className="material-symbols-outlined text-5xl icon-filled">local_shipping</span>
       </div>
-      <h1 className="text-3xl font-black text-slate-900 mb-2">Kavkaz Express</h1>
-      <p className="text-slate-500 text-center mb-10">Введите данные для быстрого входа</p>
+      <h1 className="text-3xl font-black text-slate-900 mb-2 text-center">Kavkaz Express</h1>
+      <p className="text-slate-500 text-center mb-10">Введите данные для быстрого доступа к бронированию</p>
 
       <div className="w-full space-y-4">
         <div className="space-y-1">
@@ -56,8 +56,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           Войти
         </button>
       </div>
-      
-      <p className="mt-auto mb-10 text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Работает автономно (Россия)</p>
     </div>
   );
 };
