@@ -30,29 +30,29 @@ export interface User {
   phoneNumber: string;
   role: UserRole;
   fullName: string;
-  password?: string; // 4-digit PIN
+  password?: string;
   firstName?: string;
   lastName?: string;
   middleName?: string;
   avatarUrl?: string;
-  carInfo?: string; // For drivers
+  carInfo?: string;
 }
 
 export interface Trip {
   id: string;
   driverId: string;
-  date: string; // ISO string
+  date: string;
   price: number;
   totalSeats: number;
   availableSeats: number;
-  from: string; // City
-  to: string; // City
+  from: string;
+  to: string;
   departureAddress: string;
   arrivalAddress: string;
-  departureTime: string; // HH:MM
-  arrivalTime: string; // HH:MM
-  busPlate: string; // RU Format: x777xx06
-  type: string; // Standard, Comfort, Sprinter
+  departureTime: string;
+  arrivalTime: string;
+  busPlate: string;
+  type: string;
 }
 
 export interface Booking {
@@ -60,6 +60,7 @@ export interface Booking {
   tripId: string;
   passengerId: string;
   passengerName: string;
+  passengerPhone?: string;
   status: BookingStatus;
   timestamp: string;
 }
@@ -72,7 +73,7 @@ export interface Notification {
   type: NotificationType;
   timestamp: string;
   isRead: boolean;
-  relatedId?: string; // e.g. bookingId or tripId
+  relatedId?: string;
 }
 
 export interface AppState {

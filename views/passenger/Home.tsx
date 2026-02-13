@@ -11,7 +11,7 @@ interface PassengerHomeProps {
   onShare?: () => void;
 }
 
-const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onShare }) => {
+const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onShare, onNavigateBookings }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const tg = (window as any).Telegram?.WebApp;
 
@@ -38,6 +38,12 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onShare }
             <p className="text-sm text-slate-400 font-bold uppercase tracking-tighter">Куда едем сегодня?</p>
           </div>
         </div>
+        <button 
+          onClick={onNavigateBookings}
+          className="size-12 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 active:scale-90 transition-transform"
+        >
+          <span className="material-symbols-outlined">confirmation_number</span>
+        </button>
       </header>
 
       <div className="bg-white rounded-[32px] p-8 shadow-xl shadow-slate-200/50 border border-slate-50 space-y-8">
