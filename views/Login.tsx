@@ -21,7 +21,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, allUsers }) => {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Прокси настройки
   const [showProxyModal, setShowProxyModal] = useState(false);
   const defaultProxy = 'https://project.alexdsgncom-c6a.workers.dev';
   const [proxyInput, setProxyInput] = useState(localStorage.getItem('supabase_proxy_url') || defaultProxy);
@@ -36,21 +35,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, allUsers }) => {
     setIsTestingProxy(true);
     setTestResult(null);
     
-    // Временно сохраняем для теста
     const oldProxy = localStorage.getItem('supabase_proxy_url');
     localStorage.setItem('supabase_proxy_url', proxyInput.trim());
     
     try {
       const res = await checkConnection();
       if (res.ok) {
-        setTestResult({ ok: true, msg: `Успешно! Задержка: ${res.latency}мс` });
+        setTestResult({ ok: true, msg: `Связь установлена! (${res.latency}ms)` });
       } else {
-        setTestResult({ ok: false, msg: 'Ошибка связи с базой' });
+        const errorMsg = typeof res.error === 'string' ? res.error : 'Ошибка соединения';
+        setTestResult({ ok: false, msg: errorMsg });
       }
     } catch (e) {
-      setTestResult({ ok: false, msg: 'Прокси не отвечает' });
+      setTestResult({ ok: false, msg: 'Критический сбой сети' });
     } finally {
-      // Возвращаем как было до нажатия кнопки "Сохранить"
       if (oldProxy) localStorage.setItem('supabase_proxy_url', oldProxy);
       else localStorage.removeItem('supabase_proxy_url');
       setIsTestingProxy(false);
@@ -220,7 +218,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, allUsers }) => {
               </div>
 
               {testResult && (
-                <div className={`p-3 rounded-xl text-[10px] font-bold text-center uppercase border ${
+                <div className={`p-3 rounded-xl text-[10px] font-bold text-center border ${
                   testResult.ok ? 'bg-green-50 border-green-100 text-green-600' : 'bg-red-50 border-red-100 text-red-600'
                 }`}>
                   {testResult.msg}
