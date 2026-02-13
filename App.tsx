@@ -12,7 +12,7 @@ import DriverDashboard from './views/driver/Dashboard';
 import CreateTrip from './views/driver/CreateTrip';
 import ManageRequests from './views/driver/ManageRequests';
 
-const SESSION_KEY = 'kavkaz_session_local_v1';
+const SESSION_KEY = 'kavkaz_session_v1';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -75,12 +75,23 @@ const App: React.FC = () => {
     setIsLoading(false);
 
     if (ok) {
-      alert("Бронирование успешно создано!");
+      alert("Бронирование успешно отправлено водителю!");
       updateData();
       setSubView('my-bookings');
     } else {
       alert("Ошибка при бронировании.");
     }
+  };
+
+  const handleUpdateBookingStatus = async (bookingId: string, status: BookingStatus) => {
+    setIsLoading(true);
+    const ok = await db.updateBookingStatus(bookingId, status);
+    if (ok) {
+      await updateData();
+    } else {
+      alert("Не удалось обновить статус");
+    }
+    setIsLoading(false);
   };
 
   if (view === 'loading') return (
@@ -167,7 +178,7 @@ const App: React.FC = () => {
                   trip={selectedTripForRequests} 
                   bookings={bookings.filter(b => b.tripId === selectedTripForRequests.id)} 
                   allUsers={[]} 
-                  onUpdateStatus={() => {}} 
+                  onUpdateStatus={handleUpdateBookingStatus} 
                   onBack={() => setSubView('home')} 
                 />
               )}
