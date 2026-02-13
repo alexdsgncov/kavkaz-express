@@ -1,91 +1,119 @@
 
-import { User, Trip, Booking, UserRole } from '../types';
+import { User, Trip } from '../types';
 
-interface AppData {
-  users: User[];
-  trips: Trip[];
-  bookings: Booking[];
-}
+// Используем прокси для обхода CORS при чтении публичного превью канала
+const CORS_PROXY = "https://api.allorigins.win/get?url=";
 
-const LOCAL_KEY = 'kavkaz_v5_local_db';
-
-const INITIAL_TRIPS: Trip[] = [
-  {
-    id: 't_1',
-    driverId: 'd_demo',
-    date: new Date().toISOString(),
-    price: 4500,
-    totalSeats: 18,
-    availableSeats: 4,
-    from: 'Назрань',
-    to: 'Москва',
-    departureAddress: 'Автовокзал',
-    arrivalAddress: 'ТЦ "Ханой-Москва"',
-    departureTime: '09:00',
-    arrivalTime: '06:00',
-    busPlate: 'в777ее06',
-    type: 'Sprinter'
-  }
-];
-
-class Store {
-  private data: AppData = {
-    users: [],
-    trips: INITIAL_TRIPS,
-    bookings: []
-  };
+/**
+ * TelegramDB - Драйвер "базы данных" на базе канала.
+ * Каждое сообщение в канале = Запись в таблице.
+ */
+class TelegramDB {
+  private botToken: string = "";
+  private channelId: string = ""; // username канала без @
 
   constructor() {
-    this.load();
-    // Fix: Cast window to any to access the Telegram WebApp API.
-    if ((window as any).Telegram?.WebApp) {
-      (window as any).Telegram.WebApp.ready();
+    this.botToken = localStorage.getItem('tg_db_token') || "";
+    this.channelId = localStorage.getItem('tg_db_channel') || "";
+  }
+
+  async testConnection(): Promise<boolean> {
+    if (!this.botToken || !this.channelId) return false;
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${this.botToken}/getChat?chat_id=@${this.channelId}`);
+      return res.ok;
+    } catch {
+      return false;
     }
   }
 
-  private load() {
-    const saved = localStorage.getItem(LOCAL_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        this.data = {
-          users: parsed.users || [],
-          trips: parsed.trips || INITIAL_TRIPS,
-          bookings: parsed.bookings || []
-        };
-      } catch (e) {
-        this.data.trips = INITIAL_TRIPS;
+  setCredentials(token: string, channel: string) {
+    this.botToken = token;
+    this.channelId = channel.replace('@', '');
+    localStorage.setItem('tg_db_token', token);
+    localStorage.setItem('tg_db_channel', this.channelId);
+  }
+
+  /**
+   * SELECT * FROM Trips
+   * Парсит историю канала и собирает все валидные записи рейсов.
+   */
+  async selectTrips(): Promise<Trip[]> {
+    if (!this.botToken || !this.channelId) return [];
+
+    try {
+      // Telegram предоставляет веб-превью для публичных каналов (даже если у них случайное имя)
+      const targetUrl = encodeURIComponent(`https://t.me/s/${this.channelId}`);
+      const response = await fetch(`${CORS_PROXY}${targetUrl}`);
+      const data = await response.json();
+      const html = data.contents;
+
+      const trips: Trip[] = [];
+      // Ищем блоки данных: #TRIP_JSON{...}
+      const regex = /#TRIP_JSON({.*?})/g;
+      let match;
+
+      while ((match = regex.exec(html)) !== null) {
+        try {
+          const trip = JSON.parse(match[1]);
+          // Базовая валидация данных
+          if (trip.id && trip.price) {
+            trips.push(trip);
+          }
+        } catch (e) {
+          console.error("Ошибка парсинга строки БД:", e);
+        }
       }
+
+      // Возвращаем уникальные записи (последняя по времени имеет приоритет)
+      const uniqueTrips = Array.from(new Map(trips.map(t => [t.id, t])).values());
+      
+      return uniqueTrips
+        .filter(t => new Date(t.date) >= new Date(new Date().setHours(0,0,0,0)))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } catch (err) {
+      console.error("Критическая ошибка БД:", err);
+      return [];
     }
   }
 
-  private save() {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(this.data));
+  /**
+   * INSERT INTO Trips
+   * Отправляет новую запись в лог канала.
+   */
+  async insertTrip(trip: Trip): Promise<boolean> {
+    const message = `🛠 **DB_TRANSACTION: INSERT_TRIP**\n` +
+                    `📍 ${trip.from} ➔ ${trip.to}\n` +
+                    `📅 ${new Date(trip.date).toLocaleDateString('ru')}\n` +
+                    `🆔 ID: ${trip.id}\n\n` +
+                    `#TRIP_JSON${JSON.stringify(trip)}`;
+
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: `@${this.channelId}`,
+          text: message,
+          parse_mode: 'Markdown'
+        })
+      });
+      return res.ok;
+    } catch (e) {
+      return false;
+    }
   }
 
-  getData() { return this.data; }
-
-  updateUser(user: User) {
-    const idx = this.data.users.findIndex(u => u.id === user.id);
-    if (idx > -1) this.data.users[idx] = user;
-    else this.data.users.push(user);
-    this.save();
+  async updateUserProfile(user: User): Promise<void> {
+    localStorage.setItem('kavkaz_user_local', JSON.stringify(user));
   }
 
-  addTrip(trip: Trip) {
-    this.data.trips = [trip, ...this.data.trips.filter(t => t.id !== trip.id)];
-    this.save();
-  }
-
-  deleteTrip(id: string) {
-    this.data.trips = this.data.trips.filter(t => t.id !== id);
-    this.save();
-  }
-
-  addBooking(booking: Booking) {
-    this.data.bookings = [booking, ...this.data.bookings];
-    this.save();
+  // Локальное удаление (для MVP), так как удаление из канала через API требует MessageID
+  async deleteTrip(id: string): Promise<void> {
+    const deleted = JSON.parse(localStorage.getItem('db_deleted_ids') || '[]');
+    deleted.push(id);
+    localStorage.setItem('db_deleted_ids', JSON.stringify(deleted));
   }
 }
 
-export const db = new Store();
+export const db = new TelegramDB();
