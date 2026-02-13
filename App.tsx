@@ -23,8 +23,9 @@ const App: React.FC = () => {
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
-  const [bt, setBt] = useState(localStorage.getItem('tg_db_token') || "");
-  const [ch, setCh] = useState(localStorage.getItem('tg_db_channel') || "");
+  // Состояние полей ввода для настройки БД
+  const [botToken, setBotToken] = useState(localStorage.getItem('tg_db_token') || "");
+  const [channelId, setChannelId] = useState(localStorage.getItem('tg_db_channel') || "");
 
   const tg = (window as any).Telegram?.WebApp;
 
@@ -35,8 +36,8 @@ const App: React.FC = () => {
       setDbStatus(isOk ? 'connected' : 'error');
       
       const data = await db.selectTrips();
-      const deleted = JSON.parse(localStorage.getItem('db_deleted_ids') || '[]');
-      setTrips(data.filter(t => !deleted.includes(t.id)));
+      const deletedIds = JSON.parse(localStorage.getItem('db_deleted_ids') || '[]');
+      setTrips(data.filter(t => !deletedIds.includes(t.id)));
     } catch {
       setDbStatus('error');
     } finally {
@@ -77,88 +78,99 @@ const App: React.FC = () => {
     init();
   }, [tg, updateTrips]);
 
-  const handleSaveConfig = async () => {
-    db.setCredentials(bt, ch);
+  const handleSaveDBConfig = async () => {
+    db.setCredentials(botToken, channelId);
     const isOk = await db.testConnection();
     if (isOk) {
       setShowSettings(false);
       updateTrips();
       tg?.HapticFeedback.notificationOccurred('success');
     } else {
-      tg?.showAlert("Ошибка: Бот не найден или нет доступа к каналу. Проверьте Token и Username.");
+      tg?.showAlert("Ошибка соединения! Проверьте корректность токена и ID канала.");
     }
   };
 
   if (view === 'loading') return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center">
-      <div className="size-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
 
   return (
     <div className="flex flex-col min-h-screen bg-bg-light max-w-md mx-auto relative overflow-hidden">
-      {/* DB Console Modal */}
+      
+      {/* Кнопка настройки БД (только для разработчика/админа) */}
+      <button 
+        onClick={() => setShowSettings(true)}
+        className="fixed bottom-6 right-6 size-12 bg-white shadow-2xl rounded-full flex items-center justify-center z-[150] border border-slate-100 active:scale-90 transition-transform"
+      >
+        <span className="material-symbols-outlined text-slate-400">database</span>
+      </button>
+
+      {/* Модальное окно конфигурации БД */}
       {showSettings && (
-        <div className="fixed inset-0 z-[200] bg-slate-950 p-6 flex flex-col animate-in slide-in-from-bottom">
+        <div className="fixed inset-0 z-[200] bg-slate-950 p-6 flex flex-col animate-in fade-in slide-in-from-bottom">
           <header className="flex justify-between items-center mb-8">
-            <h2 className="text-white font-black text-xl flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">database</span>
-              DB Console
-            </h2>
+            <h2 className="text-white font-black text-xl">Cloud DB Setup</h2>
             <button onClick={() => setShowSettings(false)} className="text-slate-500">
               <span className="material-symbols-outlined">close</span>
             </button>
           </header>
 
-          <div className="flex-1 space-y-6 overflow-y-auto no-scrollbar">
+          <div className="flex-1 space-y-6">
             <div className="space-y-4">
               <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-                <label className="text-[10px] font-black text-slate-500 uppercase mb-2 block">Bot API Token</label>
-                <input value={bt} onChange={e => setBt(e.target.value)} placeholder="000000:AAHH..." className="w-full bg-transparent text-white font-mono text-xs outline-none" />
+                <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">Telegram Bot Token</label>
+                <input 
+                  value={botToken} 
+                  onChange={e => setBotToken(e.target.value)} 
+                  placeholder="7123456:AAH..." 
+                  className="w-full bg-transparent text-white font-mono text-xs outline-none"
+                />
               </div>
               <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-                <label className="text-[10px] font-black text-slate-500 uppercase mb-2 block">Channel ID (Secret Name)</label>
-                <div className="flex items-center gap-1 text-white font-mono text-xs">
-                  <span className="text-slate-500">@</span>
-                  <input value={ch} onChange={e => setCh(e.target.value)} placeholder="db_channel_name" className="w-full bg-transparent outline-none" />
+                <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">Secret Channel Name</label>
+                <div className="flex items-center text-white font-mono text-xs">
+                  <span className="text-slate-600">@</span>
+                  <input 
+                    value={channelId} 
+                    onChange={e => setChannelId(e.target.value)} 
+                    placeholder="my_private_db_chan" 
+                    className="w-full bg-transparent outline-none"
+                  />
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800 space-y-2">
-               <h4 className="text-[10px] font-black text-slate-500 uppercase">Status & Health</h4>
-               <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Connection:</span>
-                  <span className={`font-black ${dbStatus === 'connected' ? 'text-success' : 'text-danger'}`}>
-                    {dbStatus === 'connected' ? 'READY' : 'ERROR'}
+            <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
+               <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Статус системы:</span>
+                  <span className={`text-xs font-black uppercase ${dbStatus === 'connected' ? 'text-success' : 'text-danger'}`}>
+                    {dbStatus === 'connected' ? 'ОНЛАЙН' : 'НЕТ СВЯЗИ'}
                   </span>
                </div>
-               <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Rows Count:</span>
-                  <span className="text-white font-black">{trips.length} records</span>
-               </div>
             </div>
-            
-            <p className="text-[10px] text-slate-600 leading-relaxed">
-              * Используйте закрытый канал с секретным публичным именем. 
-              Ваше приложение будет читать лог сообщений как таблицу Supabase.
-            </p>
+
+            <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10">
+              <p className="text-[10px] text-slate-400 leading-relaxed uppercase font-bold">
+                Инструкция: Создайте канал, сделайте его публичным, введите в поле "Ссылка" случайный набор букв (ваш секретный ID) и добавьте бота в администраторы.
+              </p>
+            </div>
           </div>
 
-          <button onClick={handleSaveConfig} className="w-full py-4 bg-primary text-white font-black rounded-2xl mt-6 shadow-xl shadow-primary/20">
-            UPDATE CONFIG
+          <button 
+            onClick={handleSaveDBConfig}
+            className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20"
+          >
+            СОХРАНИТЬ КОНФИГУРАЦИЮ
           </button>
         </div>
       )}
 
-      {/* Main App Content */}
-      <div className={`fixed top-0 left-0 right-0 h-1 z-[100] bg-primary/20 overflow-hidden ${isSyncing ? 'opacity-100' : 'opacity-0'}`}>
+      {/* Верхний индикатор синхронизации */}
+      <div className={`fixed top-0 left-0 right-0 h-1 z-[100] bg-primary/10 overflow-hidden ${isSyncing ? 'opacity-100' : 'opacity-0'}`}>
         <div className="h-full bg-primary animate-[shimmer_2s_infinite] w-1/3"></div>
       </div>
-
-      <button onClick={() => setShowSettings(true)} className="fixed bottom-6 right-6 size-12 bg-white shadow-2xl rounded-full flex items-center justify-center z-50 border border-slate-100 active:scale-90 transition-transform">
-        <span className="material-symbols-outlined text-slate-400">settings</span>
-      </button>
       
       {view === 'login' && <Login onLogin={(e, p) => {
         const u = { id: 'u_'+Date.now(), email: e, phoneNumber: p, role: UserRole.UNSET, fullName: '' };
@@ -204,7 +216,7 @@ const App: React.FC = () => {
                     await updateTrips(); 
                     setSubView('home'); 
                   } else {
-                    tg?.showAlert("DB Error: Не удалось выполнить INSERT в канал.");
+                    tg?.showAlert("Ошибка записи в базу! Проверьте настройки канала.");
                   }
                 }} onCancel={() => setSubView('home')} />
               )}
