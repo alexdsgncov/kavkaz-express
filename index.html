@@ -6,11 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#137fec" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1042/1042263.png" />
     
-    <title>Kavkaz-Express | Бизнес-перевозки</title>
+    <title>Kavkaz-Express | Бронирование</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
@@ -45,6 +46,7 @@
             overscroll-behavior-y: none;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            font-family: 'Manrope', sans-serif;
         }
         .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -59,26 +61,39 @@
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
-        .btn-press { transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1); }
-        .btn-press:active { transform: scale(0.96); }
+        .btn-press { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-press:active { transform: scale(0.96); opacity: 0.9; }
 
         @keyframes slideInUp {
             from { transform: translateY(30px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
         .animate-slide-in { animation: slideInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .shimmer-effect { overflow: hidden; position: relative; }
+        .shimmer-effect::after {
+            content: "";
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "appwrite": "https://esm.sh/appwrite@^14.0.1",
-    "framer-motion": "https://esm.sh/framer-motion@11.0.8",
-    "@emailjs/browser": "https://esm.sh/@emailjs/browser@^4.4.1",
+    "react-dom": "https://esm.sh/react-dom@^19.2.4",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.4/client",
+    "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
-    "vite": "https://esm.sh/vite@^7.3.1"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@emailjs/browser": "https://esm.sh/@emailjs/browser@^4.4.1"
   }
 }
 </script>
