@@ -4,109 +4,118 @@ import { User } from '../../types';
 
 interface PassengerHomeProps {
   user: User;
-  unreadNotifications: number;
-  onOpenNotifications: () => void;
   onSearch: (date: string) => void;
   onNavigateBookings: () => void;
-  onShare?: () => void;
-  onAdminClick?: () => void;
+  onAdminClick: () => void;
 }
 
-const PassengerHome: React.FC<PassengerHomeProps> = ({ 
-  user, 
-  unreadNotifications, 
-  onOpenNotifications, 
-  onSearch, 
-  onNavigateBookings, 
-  onAdminClick 
-}) => {
+const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigateBookings, onAdminClick }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   return (
-    <div className="flex-1 px-6 pt-10 pb-10 space-y-8 overflow-y-auto no-scrollbar">
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button 
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              if (onAdminClick) onAdminClick();
-            }}
-            className="size-14 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20 cursor-pointer active:scale-90 transition-transform outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            <span className="material-symbols-outlined text-3xl">person</span>
-          </button>
+    <div className="flex-1 flex flex-col bg-bg-soft safe-top overflow-y-auto no-scrollbar">
+      {/* Header */}
+      <div className="px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div onClick={onAdminClick} className="size-12 rounded-full bg-white shadow-sm border border-slate-100 flex items-center justify-center text-primary btn-press">
+            <span className="material-symbols-outlined text-2xl">account_circle</span>
+          </div>
           <div>
-            <h1 className="text-xl font-black">{user.fullName || 'Привет!'}</h1>
-            <p className="text-sm text-slate-400 font-bold uppercase tracking-tighter">Найдите свой рейс</p>
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none mb-1">Ваш профиль</p>
+            <h2 className="text-sm font-bold text-slate-900">{user.fullName || 'Гость'}</h2>
           </div>
         </div>
         <button 
           onClick={onNavigateBookings}
-          className="size-12 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 active:scale-90 transition-transform"
+          className="size-12 rounded-2xl glass flex items-center justify-center text-slate-900 shadow-sm btn-press"
         >
           <span className="material-symbols-outlined">confirmation_number</span>
         </button>
-      </header>
+      </div>
 
-      <div className="bg-white rounded-[32px] p-8 shadow-xl shadow-slate-200/50 border border-slate-50 space-y-8">
+      {/* Hero Section */}
+      <div className="px-6 py-6">
+        <h1 className="text-3xl font-extrabold text-slate-900 leading-tight mb-2">
+          Куда отправимся <br/><span className="text-primary">сегодня?</span>
+        </h1>
+        <p className="text-slate-500 text-sm font-medium">Безопасные рейсы Ингушетия — Москва</p>
+      </div>
+
+      {/* Booking Card */}
+      <div className="mx-6 p-6 bg-white rounded-4xl shadow-2xl shadow-slate-200/50 border border-slate-50 space-y-8 animate-slide-in">
         <div className="flex items-center justify-between relative">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Откуда</span>
-            <span className="text-2xl font-black">Назрань</span>
-          </div>
-          <div className="size-10 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg">
-            <span className="material-symbols-outlined text-xl">sync_alt</span>
-          </div>
-          <div className="flex flex-col text-right">
-            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Куда</span>
-            <span className="text-2xl font-black">Москва</span>
-          </div>
+            <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Откуда</p>
+                <p className="text-xl font-extrabold">Назрань</p>
+            </div>
+            <div className="size-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/30 z-10 btn-press">
+                <span className="material-symbols-outlined text-xl">swap_horiz</span>
+            </div>
+            <div className="space-y-1 text-right">
+                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Куда</p>
+                <p className="text-xl font-extrabold">Москва</p>
+            </div>
+            <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-slate-100 -translate-y-1/2"></div>
         </div>
 
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Дата поездки</label>
-            <input 
-              type="date" 
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-lg text-slate-700 outline-none"
-            />
-          </div>
-          
-          <button 
-            onClick={() => onSearch(date)}
-            className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all uppercase text-sm tracking-widest"
-          >
-            Найти рейсы
-          </button>
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Дата выезда</label>
+                <div className="relative">
+                    <input 
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none border border-transparent focus:border-primary/20 transition-all appearance-none"
+                    />
+                    <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">calendar_today</span>
+                </div>
+            </div>
+
+            <button 
+                onClick={() => onSearch(date)}
+                className="w-full bg-secondary py-5 rounded-2xl text-white font-extrabold text-sm uppercase tracking-widest shadow-xl shadow-slate-900/10 btn-press"
+            >
+                Найти билеты
+            </button>
         </div>
       </div>
 
-      <div className="bg-gradient-to-br from-primary to-blue-600 rounded-[32px] p-6 text-white shadow-lg shadow-primary/30 relative overflow-hidden group">
-        <div className="relative z-10">
-          <h3 className="text-lg font-black leading-tight mb-1">Kavkaz Express</h3>
-          <p className="text-xs text-white/80 font-bold mb-4">Надежные поездки в Москву и обратно каждый день.</p>
-          <button 
-            onClick={() => window.open('https://t.me/alexdsgncov')}
-            className="bg-white text-primary px-6 py-3 rounded-xl font-bold text-sm shadow-xl active:scale-95 transition-all"
-          >
-            Поддержка
-          </button>
+      {/* Info Sections */}
+      <div className="mt-10 px-6 space-y-4">
+        <p className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Преимущества</p>
+        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4">
+            <div className="min-w-[140px] p-4 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-3">
+                <div className="size-10 rounded-xl bg-blue-50 flex items-center justify-center text-primary">
+                    <span className="material-symbols-outlined">verified</span>
+                </div>
+                <p className="text-[11px] font-bold leading-tight">Проверенные водители</p>
+            </div>
+            <div className="min-w-[140px] p-4 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-3">
+                <div className="size-10 rounded-xl bg-orange-50 flex items-center justify-center text-accent">
+                    <span className="material-symbols-outlined">airline_seat_recline_extra</span>
+                </div>
+                <p className="text-[11px] font-bold leading-tight">Комфортные автобусы</p>
+            </div>
+            <div className="min-w-[140px] p-4 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-3">
+                <div className="size-10 rounded-xl bg-green-50 flex items-center justify-center text-success">
+                    <span className="material-symbols-outlined">payments</span>
+                </div>
+                <p className="text-[11px] font-bold leading-tight">Оплата при посадке</p>
+            </div>
         </div>
-        <span className="material-symbols-outlined absolute -right-4 -bottom-4 text-9xl opacity-10 rotate-12">
-          local_shipping
-        </span>
       </div>
 
-      <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10">
-        <div className="flex gap-4 items-center">
-          <span className="material-symbols-outlined text-primary">verified_user</span>
-          <p className="text-[11px] font-bold text-slate-600 leading-tight">
-            Оплата происходит при посадке. Никаких предоплат в приложении не требуется.
-          </p>
-        </div>
+      <div className="mt-4 mx-6 p-6 bg-primary rounded-4xl text-white relative overflow-hidden group btn-press mb-10">
+          <div className="relative z-10">
+              <h4 className="font-extrabold text-lg mb-1">Бизнес-класс</h4>
+              <p className="text-xs text-white/70 font-medium mb-4">Наслаждайтесь поездкой в VIP спринтерах с Wi-Fi и розетками.</p>
+              <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                  Подробнее
+                  <span className="material-symbols-outlined text-xs">arrow_forward</span>
+              </div>
+          </div>
+          <span className="material-symbols-outlined absolute -right-6 -bottom-6 text-[120px] opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-700">airport_shuttle</span>
       </div>
     </div>
   );
