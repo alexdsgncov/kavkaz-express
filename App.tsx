@@ -60,44 +60,50 @@ const App: React.FC = () => {
 
   const handleBook = async (tripId: string, passengerInfo: { fullName: string, phoneNumber: string }) => {
     setIsLoading(true);
-    
-    const userData: User = {
-      id: user?.id || 'u_' + Math.random().toString(36).substr(2, 9),
-      fullName: passengerInfo.fullName,
-      phoneNumber: passengerInfo.phoneNumber,
-      email: user?.email || '',
-      role: UserRole.PASSENGER
-    };
-    
-    setUser(userData);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(userData));
+    try {
+      const userData: User = {
+        id: user?.id || 'u_' + Math.random().toString(36).substr(2, 9),
+        fullName: passengerInfo.fullName,
+        phoneNumber: passengerInfo.phoneNumber,
+        email: user?.email || '',
+        role: UserRole.PASSENGER
+      };
+      
+      setUser(userData);
+      localStorage.setItem(SESSION_KEY, JSON.stringify(userData));
 
-    const newBooking: Booking = {
-      id: 'b_' + Math.random().toString(36).substr(2, 9),
-      tripId: tripId,
-      passengerId: userData.id,
-      passengerName: userData.fullName,
-      passengerPhone: userData.phoneNumber,
-      status: BookingStatus.PENDING,
-      timestamp: new Date().toISOString()
-    };
+      const newBooking: Booking = {
+        id: 'b_' + Math.random().toString(36).substr(2, 9),
+        tripId: tripId,
+        passengerId: userData.id,
+        passengerName: userData.fullName,
+        passengerPhone: userData.phoneNumber,
+        status: BookingStatus.PENDING,
+        timestamp: new Date().toISOString()
+      };
 
-    const dbOk = await db.insertBooking(newBooking);
-    
-    if (dbOk) {
-      await sendBookingNotification(newBooking);
-      alert("Заявка успешно отправлена! Водитель перезвонит вам в ближайшее время.");
-      await updateData();
-      setSubView('my-bookings');
-    } else {
-      alert("Ошибка при сохранении заявки. Попробуйте снова.");
+      const dbOk = await db.insertBooking(newBooking);
+      
+      if (dbOk) {
+        await sendBookingNotification(newBooking);
+        alert("Заявка успешно отправлена! Водитель перезвонит вам в ближайшее время.");
+        await updateData();
+        setSubView('my-bookings');
+      } else {
+        alert("Ошибка при сохранении заявки. Попробуйте снова.");
+      }
+    } catch (err) {
+      console.error("Booking error:", err);
+      alert("Произошла ошибка при бронировании.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
-  const handleSwitchToDriver = () => {
+  const handleSwitchToDriver = async () => {
     const pin = prompt("Введите код доступа водителя:");
     if (pin === "0606") {
+      setIsLoading(true);
       const driverData: User = {
         id: 'd_admin',
         fullName: 'Администратор Кавказ-Экспресс',
@@ -106,13 +112,21 @@ const App: React.FC = () => {
         role: UserRole.DRIVER
       };
       
-      setUser(driverData);
-      localStorage.setItem(SESSION_KEY, JSON.stringify(driverData));
-      
-      setTimeout(() => {
+      try {
+        // Гарантируем, что профиль водителя есть в базе для удовлетворения Foreign Key
+        await db.updateUserProfile(driverData);
+        
+        setUser(driverData);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(driverData));
+        
         setView('driver');
         setSubView('home');
-      }, 0);
+      } catch (err) {
+        console.error("Failed to sync driver profile:", err);
+        alert("Ошибка авторизации водителя в базе данных.");
+      } finally {
+        setIsLoading(false);
+      }
     } else if (pin !== null) {
       alert("Неверный код доступа.");
     }
@@ -192,14 +206,21 @@ const App: React.FC = () => {
               initialTrip={editingTrip} 
               onSave={async (t) => { 
                 setIsLoading(true);
-                const ok = await db.insertTrip(t);
-                if (ok) {
-                  await updateData(); 
-                  setSubView('home'); 
-                } else {
-                  alert("Ошибка при сохранении рейса. Проверьте подключение к базе данных.");
+                try {
+                  console.log("Saving trip:", t);
+                  const ok = await db.insertTrip(t);
+                  if (ok) {
+                    await updateData(); 
+                    setSubView('home'); 
+                  } else {
+                    alert("Ошибка при сохранении рейса. Проверьте консоль или подключение к базе данных.");
+                  }
+                } catch (err) {
+                  console.error("Insert trip exception:", err);
+                  alert("Критическая ошибка при сохранении рейса.");
+                } finally {
+                  setIsLoading(false);
                 }
-                setIsLoading(false);
               }} 
               onCancel={() => setSubView('home')} 
             />

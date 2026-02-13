@@ -7,7 +7,6 @@ class SupabaseStore {
     return getSupabase();
   }
 
-  // Вспомогательный метод для маппинга из БД (snake_case) в приложение (camelCase)
   private mapTripFromDb(t: any): Trip {
     return {
       id: t.id,
@@ -27,7 +26,6 @@ class SupabaseStore {
     };
   }
 
-  // Вспомогательный метод для маппинга из приложения в БД (snake_case)
   private mapTripToDb(t: Trip) {
     return {
       id: t.id,
@@ -51,20 +49,22 @@ class SupabaseStore {
     const c = this.client;
     if (!c) return [];
     try {
-      // Получаем начало сегодняшнего дня в ISO для фильтрации
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
       const { data, error } = await c
         .from('trips')
         .select('*')
-        .gte('date', today.toISOString())
+        .gte('date', today.toISOString().split('T')[0]) // Сравнение только дат
         .order('date', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching trips:', error);
+        return [];
+      }
       return (data || []).map(this.mapTripFromDb);
     } catch (e) {
-      console.error('Error fetching trips:', e);
+      console.error('Error fetching trips exception:', e);
       return [];
     }
   }
@@ -93,17 +93,18 @@ class SupabaseStore {
     if (!c) return false;
     try {
       const dbTrip = this.mapTripToDb(trip);
+      console.log("Upserting to Supabase:", dbTrip);
       const { error } = await c
         .from('trips')
         .upsert(dbTrip);
       
       if (error) {
         console.error('Supabase error during upsert:', error);
-        throw error;
+        return false;
       }
       return true;
     } catch (e) {
-      console.error('Error saving trip:', e);
+      console.error('Error saving trip exception:', e);
       return false;
     }
   }
@@ -167,15 +168,13 @@ class SupabaseStore {
           email: user.email,
           phone_number: user.phoneNumber,
           full_name: user.fullName,
-          role: user.role,
-          first_name: user.firstName,
-          last_name: user.lastName,
-          middle_name: user.middleName
+          role: user.role
         });
       
       if (error) throw error;
     } catch (e) {
       console.error('Error updating profile:', e);
+      throw e;
     }
   }
 
