@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, UserRole, Trip, Booking, BookingStatus } from './types';
+import { User, UserRole, Trip, Booking, BookingStatus, TripStatus } from './types';
 import { db } from './lib/store';
 import { sendTelegramNotification } from './lib/telegram';
 import PassengerHome from './views/passenger/Home';
@@ -31,7 +31,8 @@ const App: React.FC = () => {
       setTrips(allTrips);
       if (user) {
         const myBookings = await db.getMyBookings(user.id);
-        setBookings(myBookings);
+        const allBookings = user.role === UserRole.DRIVER ? await (db as any)._storage.get('bookings') : myBookings;
+        setBookings(allBookings);
       }
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
@@ -39,7 +40,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const session = localStorage.getItem(SESSION_KEY);
-    if (session) setUser(JSON.parse(session));
+    if (session) {
+      const parsedUser = JSON.parse(session);
+      setUser(parsedUser);
+      if (parsedUser.role === UserRole.DRIVER) setView('driver');
+    }
     loadData();
   }, [loadData]);
 
@@ -103,7 +108,13 @@ const App: React.FC = () => {
         localStorage.setItem(SESSION_KEY, JSON.stringify(driver));
         setView('driver');
         setActiveScreen('home');
+        loadData();
     }
+  };
+
+  const handleUpdateTripStatus = async (tripId: string, status: TripStatus) => {
+    await db.updateTripStatus(tripId, status);
+    loadData();
   };
 
   return (
@@ -161,16 +172,30 @@ const App: React.FC = () => {
                     bookings={bookings} 
                     onCreateTrip={() => setActiveScreen('create-trip')}
                     onManageTrip={(t) => { setSelectedTrip(t); setActiveScreen('manage'); }}
-                    onEditTrip={() => {}}
-                    onDeleteTrip={async (id) => { await db.deleteTrip(id); loadData(); }}
+                    onEditTrip={(t) => { setSelectedTrip(t); setActiveScreen('create-trip'); }}
+                    onDeleteTrip={async (id) => { if(confirm("Удалить рейс?")) { await db.deleteTrip(id); loadData(); } }}
                     onLogout={() => { localStorage.removeItem(SESSION_KEY); setView('passenger'); setUser(null); }}
                 />
               )}
               {activeScreen === 'create-trip' && (
                   <CreateTrip 
                     driverId={user!.id}
-                    onSave={async (t) => { await db.createTrip(t); loadData(); setActiveScreen('home'); }}
-                    onCancel={() => setActiveScreen('home')}
+                    initialTrip={selectedTrip}
+                    onSave={async (t) => { 
+                      if (selectedTrip) {
+                        // Logic for update in store needed or simple replace
+                        const all = (db as any)._storage.get('trips');
+                        const idx = all.findIndex((trip: any) => trip.id === t.id);
+                        if (idx > -1) all[idx] = t;
+                        (db as any)._storage.set('trips', all);
+                      } else {
+                        await db.createTrip(t);
+                      }
+                      setSelectedTrip(null);
+                      loadData(); 
+                      setActiveScreen('home'); 
+                    }}
+                    onCancel={() => { setSelectedTrip(null); setActiveScreen('home'); }}
                   />
               )}
               {activeScreen === 'manage' && selectedTrip && (
@@ -179,6 +204,7 @@ const App: React.FC = () => {
                     bookings={bookings.filter(b => b.tripId === selectedTrip.id)}
                     allUsers={[]}
                     onUpdateStatus={async (id, s) => { await db.updateBookingStatus(id, s); loadData(); }}
+                    onUpdateTripStatus={handleUpdateTripStatus}
                     onBack={() => setActiveScreen('home')}
                   />
               )}
