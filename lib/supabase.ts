@@ -1,7 +1,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const originalUrl = 'https://speklqrjpwfsznxovei.supabase.co';
+// ПРАВИЛЬНЫЙ АДРЕС (соответствует вашему anon key)
+const originalUrl = 'https://speklqrvojpwfsznxovei.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwZWtscXJvanB3ZnN6bnhvdmVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzYxOTksImV4cCI6MjA4NjUxMjE5OX0.ZkWKtyMWkKFmeYZLmcqN5hIjXj94pal2zhEuvYaPch0';
 
 const defaultProxy = 'https://project.alexdsgncom-c6a.workers.dev';
@@ -11,7 +12,8 @@ if (proxyUrl.endsWith('/')) {
   proxyUrl = proxyUrl.slice(0, -1);
 }
 
-console.log('🔌 Инициализация Supabase через:', proxyUrl);
+console.log('🔌 Подключение к базе:', originalUrl);
+console.log('🌉 Через прокси:', proxyUrl);
 
 export const supabase = createClient(proxyUrl, supabaseAnonKey, {
   auth: {
@@ -24,7 +26,7 @@ export const supabase = createClient(proxyUrl, supabaseAnonKey, {
     },
     fetch: (url, options) => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), 20000);
       return fetch(url, {
         ...options,
         signal: controller.signal,
@@ -36,24 +38,23 @@ export const supabase = createClient(proxyUrl, supabaseAnonKey, {
 export const checkConnection = async () => {
   try {
     const start = Date.now();
-    // Делаем запрос к корню API через fetch напрямую для быстрой проверки
-    const response = await fetch(`${proxyUrl}/rest/v1/`, {
+    // Проверка через запрос к списку таблиц (безопасный метод)
+    const response = await fetch(`${proxyUrl}/rest/v1/?cb=${start}`, {
       headers: { 'apikey': supabaseAnonKey }
     });
     
     const latency = Date.now() - start;
 
-    if (response.status === 1016 || response.status === 502) {
-      return { ok: false, error: 'Ошибка DNS в Cloudflare (1016/502). Проверьте код воркера.' };
+    if (response.status === 1016) {
+      return { ok: false, error: 'Ошибка 1016: Неверный адрес базы в коде воркера!' };
     }
 
     if (response.ok || response.status === 404 || response.status === 401) {
       return { ok: true, latency };
     }
     
-    return { ok: false, error: `Код ответа: ${response.status}` };
+    return { ok: false, error: `Статус: ${response.status}` };
   } catch (err) {
-    console.error('Proxy connection error:', err);
-    return { ok: false, error: 'Не удалось достучаться до прокси' };
+    return { ok: false, error: 'Прокси недоступен' };
   }
 };
