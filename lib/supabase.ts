@@ -5,23 +5,28 @@ const DEFAULT_URL = 'https://speklqrojpwfsznxovei.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwZWtscXJvanB3ZnN6bnhvdmVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzYxOTksImV4cCI6MjA4NjUxMjE5OX0.ZkWKtyMWkKFmeYZLmcqN5hIjXj94pal2zhEuvYaPch0';
 
 const isValid = (val: any): val is string => {
-  return typeof val === 'string' && val.length > 0 && val !== 'undefined' && val !== 'null';
+  return typeof val === 'string' && val.length > 5 && val !== 'undefined' && val !== 'null';
 };
 
 export const getSupabaseConfig = () => {
-  const url = localStorage.getItem('SUPABASE_URL') || 
-              (import.meta as any).env?.VITE_SUPABASE_URL || 
-              (process.env as any)?.SUPABASE_URL ||
-              DEFAULT_URL;
-              
-  const key = localStorage.getItem('SUPABASE_ANON_KEY') || 
-              (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 
-              (process.env as any)?.SUPABASE_ANON_KEY ||
-              DEFAULT_KEY;
-              
+  let url = null;
+  let key = null;
+
+  // 1. Пробуем localStorage
+  try {
+    url = localStorage.getItem('SUPABASE_URL');
+    key = localStorage.getItem('SUPABASE_ANON_KEY');
+  } catch (e) {
+    console.warn("LocalStorage access denied");
+  }
+
+  // 2. Пробуем Vite Env (import.meta.env)
+  const viteUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
+  const viteKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+
   return { 
-    url: isValid(url) ? url : null, 
-    key: isValid(key) ? key : null 
+    url: isValid(url) ? url : (isValid(viteUrl) ? viteUrl : DEFAULT_URL), 
+    key: isValid(key) ? key : (isValid(viteKey) ? viteKey : DEFAULT_KEY) 
   };
 };
 
@@ -41,8 +46,12 @@ export const getSupabase = () => {
   if (supabaseClient) return supabaseClient;
   const { url, key } = getSupabaseConfig();
   if (url && key) {
-    supabaseClient = createClient(url, key);
-    return supabaseClient;
+    try {
+      supabaseClient = createClient(url, key);
+      return supabaseClient;
+    } catch (e) {
+      console.error("Failed to create Supabase client:", e);
+    }
   }
   return null;
 };

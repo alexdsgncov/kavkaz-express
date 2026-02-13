@@ -4,14 +4,14 @@ import { User, Trip, Booking, BookingStatus } from '../types';
 
 class SupabaseStore {
   private get client() {
-    const s = getSupabase();
-    if (!s) throw new Error("Supabase is not initialized. Please configure credentials.");
-    return s;
+    return getSupabase();
   }
 
   async selectTrips(): Promise<Trip[]> {
+    const c = this.client;
+    if (!c) return [];
     try {
-      const { data, error } = await this.client
+      const { data, error } = await c
         .from('trips')
         .select('*')
         .gte('date', new Date().toISOString())
@@ -26,8 +26,10 @@ class SupabaseStore {
   }
 
   async selectBookings(userId?: string, role?: string): Promise<Booking[]> {
+    const c = this.client;
+    if (!c) return [];
     try {
-      let query = this.client.from('bookings').select('*');
+      let query = c.from('bookings').select('*');
       
       if (userId && role === 'passenger') {
         query = query.eq('passengerId', userId);
@@ -43,8 +45,10 @@ class SupabaseStore {
   }
 
   async insertTrip(trip: Trip): Promise<boolean> {
+    const c = this.client;
+    if (!c) return false;
     try {
-      const { error } = await this.client
+      const { error } = await c
         .from('trips')
         .upsert(trip);
       
@@ -57,8 +61,10 @@ class SupabaseStore {
   }
 
   async insertBooking(booking: Booking): Promise<boolean> {
+    const c = this.client;
+    if (!c) return false;
     try {
-      const { error } = await this.client
+      const { error } = await c
         .from('bookings')
         .insert(booking);
 
@@ -71,8 +77,10 @@ class SupabaseStore {
   }
 
   async updateBookingStatus(bookingId: string, status: BookingStatus): Promise<boolean> {
+    const c = this.client;
+    if (!c) return false;
     try {
-      const { error } = await this.client
+      const { error } = await c
         .from('bookings')
         .update({ status })
         .eq('id', bookingId);
@@ -86,8 +94,10 @@ class SupabaseStore {
   }
 
   async deleteTrip(id: string): Promise<void> {
+    const c = this.client;
+    if (!c) return;
     try {
-      const { error } = await this.client
+      const { error } = await c
         .from('trips')
         .delete()
         .eq('id', id);
@@ -99,8 +109,10 @@ class SupabaseStore {
   }
 
   async updateUserProfile(user: User): Promise<void> {
+    const c = this.client;
+    if (!c) return;
     try {
-      const { error } = await this.client
+      const { error } = await c
         .from('users')
         .upsert({
           id: user.id,
@@ -120,8 +132,10 @@ class SupabaseStore {
   }
 
   async testConnection(): Promise<boolean> {
+    const c = this.client;
+    if (!c) return false;
     try {
-      const { error } = await this.client.from('trips').select('id').limit(1);
+      const { error } = await c.from('trips').select('id').limit(1);
       return !error;
     } catch {
       return false;
