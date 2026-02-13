@@ -12,21 +12,17 @@ export const getSupabaseConfig = () => {
   let url = null;
   let key = null;
 
-  // 1. Пробуем localStorage
   try {
     url = localStorage.getItem('SUPABASE_URL');
     key = localStorage.getItem('SUPABASE_ANON_KEY');
   } catch (e) {
-    console.warn("LocalStorage access denied");
+    // Ignore localStorage errors
   }
 
-  // 2. Пробуем Vite Env (import.meta.env)
-  const viteUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
-  const viteKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
-
+  // Fallback to constants if storage is empty
   return { 
-    url: isValid(url) ? url : (isValid(viteUrl) ? viteUrl : DEFAULT_URL), 
-    key: isValid(key) ? key : (isValid(viteKey) ? viteKey : DEFAULT_KEY) 
+    url: isValid(url) ? url : DEFAULT_URL, 
+    key: isValid(key) ? key : DEFAULT_KEY 
   };
 };
 
@@ -36,8 +32,12 @@ export const initSupabase = (url: string, key: string) => {
   if (!isValid(url) || !isValid(key)) {
     throw new Error("Supabase URL and Key are required to initialize.");
   }
-  localStorage.setItem('SUPABASE_URL', url);
-  localStorage.setItem('SUPABASE_ANON_KEY', key);
+  try {
+    localStorage.setItem('SUPABASE_URL', url);
+    localStorage.setItem('SUPABASE_ANON_KEY', key);
+  } catch (e) {
+    // Ignore quota or access errors
+  }
   supabaseClient = createClient(url, key);
   return supabaseClient;
 };

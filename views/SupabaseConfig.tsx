@@ -111,7 +111,7 @@ const SupabaseConfig: React.FC<SupabaseConfigProps> = ({ onConfigured }) => {
 
         <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
           <p className="text-[11px] text-primary/80 leading-relaxed font-medium">
-            <strong>Инструкция:</strong> Зайдите в панель Supabase -> Project Settings -> API и скопируйте URL и anon/public key.
+            <strong>Инструкция:</strong> Зайдите в панель Supabase &rarr; Project Settings &rarr; API и скопируйте URL и anon/public key.
           </p>
         </div>
       </div>
