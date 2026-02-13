@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
+import { checkConnection } from '../lib/supabase';
 
 const EMAILJS_PUBLIC_KEY = 'qmSqGN956CS1-rTqF'.trim(); 
 const EMAILJS_SERVICE_ID = 'service_yy1vob9';
@@ -19,17 +20,50 @@ const Login: React.FC<LoginProps> = ({ onLogin, allUsers }) => {
   const [pin, setPin] = useState(['', '', '', '']);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Прокси настройки
   const [showProxyModal, setShowProxyModal] = useState(false);
-  const [proxyInput, setProxyInput] = useState(localStorage.getItem('supabase_proxy_url') || '');
+  const defaultProxy = 'https://project.alexdsgncom-c6a.workers.dev';
+  const [proxyInput, setProxyInput] = useState(localStorage.getItem('supabase_proxy_url') || defaultProxy);
+  const [isTestingProxy, setIsTestingProxy] = useState(false);
+  const [testResult, setTestResult] = useState<{ok: boolean, msg: string} | null>(null);
+
+  const testProxyConnection = async () => {
+    if (!proxyInput) {
+      setTestResult({ ok: false, msg: 'Введите URL' });
+      return;
+    }
+    setIsTestingProxy(true);
+    setTestResult(null);
+    
+    // Временно сохраняем для теста
+    const oldProxy = localStorage.getItem('supabase_proxy_url');
+    localStorage.setItem('supabase_proxy_url', proxyInput.trim());
+    
+    try {
+      const res = await checkConnection();
+      if (res.ok) {
+        setTestResult({ ok: true, msg: `Успешно! Задержка: ${res.latency}мс` });
+      } else {
+        setTestResult({ ok: false, msg: 'Ошибка связи с базой' });
+      }
+    } catch (e) {
+      setTestResult({ ok: false, msg: 'Прокси не отвечает' });
+    } finally {
+      // Возвращаем как было до нажатия кнопки "Сохранить"
+      if (oldProxy) localStorage.setItem('supabase_proxy_url', oldProxy);
+      else localStorage.removeItem('supabase_proxy_url');
+      setIsTestingProxy(false);
+    }
+  };
 
   const saveProxy = () => {
-    if (proxyInput) {
+    if (proxyInput && proxyInput !== defaultProxy) {
       localStorage.setItem('supabase_proxy_url', proxyInput.trim());
-      window.location.reload(); // Перезагружаем для применения нового URL
     } else {
       localStorage.removeItem('supabase_proxy_url');
-      window.location.reload();
     }
+    window.location.reload(); 
   };
 
   const validateEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -102,12 +136,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, allUsers }) => {
 
   return (
     <div className="flex flex-col min-h-screen bg-bg-light max-w-md mx-auto items-center px-6 pt-12 relative">
-      {/* Кнопка настроек прокси */}
       <button 
         onClick={() => setShowProxyModal(true)}
-        className="absolute top-4 right-4 p-2 text-slate-300 hover:text-primary transition-colors"
+        className="absolute top-4 right-4 p-3 text-slate-300 hover:text-primary transition-all active:rotate-45"
       >
-        <span className="material-symbols-outlined">settings_ethernet</span>
+        <span className="material-symbols-outlined text-2xl">settings_ethernet</span>
       </button>
 
       <div className="w-full space-y-8 mt-4">
@@ -116,7 +149,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, allUsers }) => {
              <span className="material-symbols-outlined text-4xl icon-filled">local_shipping</span>
           </div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900">Kavkaz Express</h1>
-          <p className="text-slate-500 text-sm">
+          <p className="text-slate-500 text-sm font-medium">
             {stage === 'input' ? 'Вход в систему' : stage === 'otp' ? 'Подтверждение почты' : 'Введите ПИН-код'}
           </p>
         </div>
@@ -158,35 +191,54 @@ const Login: React.FC<LoginProps> = ({ onLogin, allUsers }) => {
         )}
       </div>
 
-      {/* Модалка настроек прокси */}
       {showProxyModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-6">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl space-y-6 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center gap-4">
               <div className="size-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
                 <span className="material-symbols-outlined text-3xl">language</span>
               </div>
               <div>
-                <h3 className="font-black text-xl">Обход блокировки</h3>
+                <h3 className="font-black text-xl">Сеть</h3>
                 <p className="text-xs text-slate-400">Настройка Cloudflare Proxy</p>
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">URL воркера Cloudflare</label>
-              <input 
-                type="url" 
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 font-mono text-xs" 
-                placeholder="https://my-proxy.workers.dev"
-                value={proxyInput}
-                onChange={(e) => setProxyInput(e.target.value)}
-              />
-              <p className="text-[9px] text-slate-400 leading-relaxed">
-                Введите URL, который выдал Cloudflare после деплоя. Это позволит приложению работать в РФ.
-              </p>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">URL воркера Cloudflare</label>
+                <input 
+                  type="url" 
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 font-mono text-xs" 
+                  placeholder="https://...workers.dev"
+                  value={proxyInput}
+                  onChange={(e) => {
+                    setProxyInput(e.target.value);
+                    setTestResult(null);
+                  }}
+                />
+              </div>
+
+              {testResult && (
+                <div className={`p-3 rounded-xl text-[10px] font-bold text-center uppercase border ${
+                  testResult.ok ? 'bg-green-50 border-green-100 text-green-600' : 'bg-red-50 border-red-100 text-red-600'
+                }`}>
+                  {testResult.msg}
+                </div>
+              )}
+
+              <button 
+                onClick={testProxyConnection}
+                disabled={isTestingProxy || !proxyInput}
+                className="w-full py-2 text-primary font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                {isTestingProxy ? 'Проверка...' : 'Проверить соединение'}
+              </button>
             </div>
+
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowProxyModal(false)} className="flex-1 py-4 text-slate-400 font-bold text-sm">Отмена</button>
-              <button onClick={saveProxy} className="flex-1 py-4 bg-primary text-white font-bold text-sm rounded-2xl shadow-lg shadow-primary/20">Сохранить</button>
+              <button onClick={saveProxy} className="flex-1 py-4 bg-primary text-white font-bold text-sm rounded-2xl shadow-lg shadow-primary/20">Применить</button>
             </div>
           </div>
         </div>
