@@ -1,20 +1,18 @@
 
 import React, { useState } from 'react';
 import { Trip } from '../../types';
-import SeatPicker from './SeatPicker';
 
 interface PassengerTripListProps {
   trips: Trip[];
-  onBook: (tripId: string, info: { fullName: string, phoneNumber: string, seatNumber: number }) => void;
+  onBook: (tripId: string, info: { fullName: string, phoneNumber: string }) => void;
   onBack: () => void;
   selectedDate: string;
   initialUserData?: { fullName: string, phoneNumber: string };
 }
 
 const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, onBook, onBack, selectedDate, initialUserData }) => {
-  const [step, setStep] = useState<'list' | 'seats' | 'info'>('list');
+  const [step, setStep] = useState<'list' | 'info'>('list');
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
-  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const [fullName, setFullName] = useState(initialUserData?.fullName || '');
   const [phone, setPhone] = useState(initialUserData?.phoneNumber || '+7 9');
 
@@ -25,28 +23,15 @@ const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, onBook, on
   };
 
   const handleConfirmBooking = () => {
-    if (fullName.trim().length < 3 || phone.length < 13 || !selectedSeat || !selectedTrip) {
+    if (fullName.trim().length < 3 || phone.length < 13 || !selectedTrip) {
       alert("Пожалуйста, заполните все данные корректно.");
       return;
     }
-    onBook(selectedTrip.id, { fullName, phoneNumber: phone, seatNumber: selectedSeat });
+    onBook(selectedTrip.id, { fullName, phoneNumber: phone });
   };
 
-  if (step === 'seats' && selectedTrip) {
-    return (
-        <SeatPicker 
-            totalSeats={selectedTrip.totalSeats}
-            occupiedSeats={selectedTrip.occupiedSeats}
-            selectedSeat={selectedSeat}
-            onSelect={setSelectedSeat}
-            onBack={() => setStep('list')}
-            onConfirm={() => setStep('info')}
-        />
-    );
-  }
-
   return (
-    <div className="flex-1 pb-24 bg-bg-soft flex flex-col h-full">
+    <div className="flex-1 pb-24 bg-bg-soft flex flex-col h-full animate-slide-in">
       <header className="sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-100 p-4 flex items-center justify-between">
         <button onClick={onBack} className="text-primary p-2 btn-press">
           <span className="material-symbols-outlined">arrow_back_ios_new</span>
@@ -69,17 +54,17 @@ const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, onBook, on
           </div>
         ) : (
           trips.map(trip => (
-            <div key={trip.id} className="bg-white rounded-4xl p-6 border border-slate-100 shadow-sm space-y-5 animate-slide-in">
+            <div key={trip.id} className="bg-white rounded-4xl p-6 border border-slate-100 shadow-sm space-y-5">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <div className="size-12 rounded-2xl bg-blue-50 flex items-center justify-center text-primary">
                     <span className="material-symbols-outlined text-2xl">airport_shuttle</span>
                   </div>
                   <div>
-                    <p className="text-sm font-black text-slate-900 uppercase">{trip.type} VIP</p>
+                    <p className="text-sm font-black text-slate-900 uppercase">{trip.busModel.split(' ')[0] || 'Mercedes'}</p>
                     <div className="flex items-center gap-1">
                         <span className="size-1.5 rounded-full bg-success"></span>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Свободно: {trip.availableSeats}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Мест: {trip.availableSeats}</p>
                     </div>
                   </div>
                 </div>
@@ -104,38 +89,25 @@ const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, onBook, on
               </div>
 
               <button 
-                onClick={() => { setSelectedTrip(trip); setStep('seats'); }}
+                onClick={() => { setSelectedTrip(trip); setStep('info'); }}
                 className="w-full bg-secondary py-4 rounded-2xl text-white font-extrabold text-xs uppercase tracking-widest btn-press"
               >
-                Выбрать место
+                Забронировать
               </button>
             </div>
           ))
         )}
       </main>
 
-      {/* Модалка оформления (Шаг 3) */}
+      {/* Модалка оформления */}
       {step === 'info' && selectedTrip && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-white rounded-t-[40px] p-8 space-y-6 shadow-2xl animate-slide-up">
+          <div className="w-full max-w-md bg-white rounded-t-[40px] p-8 space-y-6 shadow-2xl animate-slide-in">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-black">Данные пассажира</h3>
-              <button onClick={() => setStep('seats')} className="size-10 rounded-full bg-slate-50 flex items-center justify-center btn-press">
+              <button onClick={() => setStep('list')} className="size-10 rounded-full bg-slate-50 flex items-center justify-center btn-press">
                 <span className="material-symbols-outlined text-slate-400">close</span>
               </button>
-            </div>
-            
-            <div className="p-4 bg-primary/5 rounded-3xl flex items-center justify-between border border-primary/10">
-                <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-xl bg-primary flex items-center justify-center text-white">
-                        <span className="material-symbols-outlined">event_seat</span>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-primary uppercase">Выбранное место</p>
-                        <p className="font-black text-lg">Место №{selectedSeat}</p>
-                    </div>
-                </div>
-                <button onClick={() => setStep('seats')} className="text-xs font-black text-primary underline">Изменить</button>
             </div>
 
             <div className="space-y-4">
@@ -163,7 +135,7 @@ const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, onBook, on
                 onClick={handleConfirmBooking}
                 className="w-full py-5 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 btn-press uppercase tracking-widest text-xs"
               >
-                Оформить билет
+                Подтвердить бронь
               </button>
             </div>
           </div>

@@ -7,6 +7,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#137fec" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1042/1042263.png" />
     
     <title>Kavkaz-Express | Бизнес-перевозки</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -41,6 +43,8 @@
             color: #0f172a;
             -webkit-font-smoothing: antialiased;
             overscroll-behavior-y: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
         .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -58,13 +62,6 @@
         .btn-press { transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1); }
         .btn-press:active { transform: scale(0.96); }
 
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
-        }
-        .animate-float { animation: float 3s ease-in-out infinite; }
-        
         @keyframes slideInUp {
             from { transform: translateY(30px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }

@@ -43,7 +43,7 @@ const App: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  const handleBook = async (tripId: string, info: { fullName: string, phoneNumber: string, seatNumber: number }) => {
+  const handleBook = async (tripId: string, info: { fullName: string, phoneNumber: string }) => {
     setIsLoading(true);
     try {
         const newUser: User = user || {
@@ -64,15 +64,13 @@ const App: React.FC = () => {
             tripId,
             passengerId: newUser.id,
             passengerName: newUser.fullName,
-            passengerPhone: newUser.phoneNumber,
-            seatNumber: info.seatNumber
+            passengerPhone: newUser.phoneNumber
         });
 
-        // Telegram Notify
         const trip = trips.find(t => t.id === tripId);
         if (trip) {
             await sendTelegramNotification(`
-🆕 <b>БРОНЬ (Место №${booking.seatNumber})</b>
+🆕 <b>БРОНЬ!</b>
 👤 ${booking.passengerName}
 📞 <code>${booking.passengerPhone}</code>
 📍 ${trip.from} → ${trip.to}
@@ -86,7 +84,7 @@ const App: React.FC = () => {
         setActiveScreen('ticket');
     } catch (e) { 
         console.error(e);
-        alert("Ошибка бронирования. Возможно место уже занято."); 
+        alert("Ошибка бронирования."); 
     }
     finally { setIsLoading(false); }
   };

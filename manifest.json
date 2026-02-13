@@ -1,0 +1,22 @@
+
+{
+  "name": "Kavkaz-Express",
+  "short_name": "K-Express",
+  "description": "Бронирование рейсов Ингушетия — Москва",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#137fec",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1042/1042263.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1042/1042263.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

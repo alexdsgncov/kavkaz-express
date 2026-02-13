@@ -46,13 +46,6 @@ export interface User {
   tripsCount?: number;
 }
 
-export interface Seat {
-  id: number;
-  label: string;
-  isAvailable: boolean;
-  type: 'window' | 'aisle' | 'standard';
-}
-
 export interface Trip {
   id: string;
   driverId: string;
@@ -60,7 +53,7 @@ export interface Trip {
   price: number;
   totalSeats: number;
   availableSeats: number;
-  occupiedSeats: number[]; // Массив ID занятых мест
+  occupiedSeats: number[]; 
   from: string;
   to: string;
   departureAddress: string;
@@ -69,7 +62,7 @@ export interface Trip {
   arrivalTime: string;
   busPlate: string;
   busModel: string;
-  type: 'Standard' | 'Comfort' | 'Luxury';
+  type: 'Standard' | 'Comfort' | 'Luxury' | 'Sprinter' | string;
   status: TripStatus;
 }
 
@@ -80,7 +73,7 @@ export interface Booking {
   passengerName: string;
   passengerPhone: string;
   status: BookingStatus;
-  seatNumber: number;
+  seatNumber?: number; // Теперь необязательно
   timestamp: string;
   qrCode?: string;
 }

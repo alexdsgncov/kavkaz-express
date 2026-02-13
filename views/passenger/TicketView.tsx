@@ -20,16 +20,15 @@ const TicketView: React.FC<TicketViewProps> = ({ booking, trip, onBack }) => {
         </header>
 
         <div className="bg-white rounded-[40px] overflow-hidden flex flex-col shadow-2xl">
-            {/* Upper Part */}
             <div className="p-8 space-y-6">
                 <div className="flex justify-between items-start">
                     <div>
                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Маршрут</p>
                         <h3 className="text-xl font-extrabold text-slate-900">{trip.from} — {trip.to}</h3>
                     </div>
-                    <div className="bg-primary/5 px-4 py-2 rounded-2xl border border-primary/10">
-                        <p className="text-[10px] font-black text-primary uppercase mb-1">Место</p>
-                        <p className="text-2xl font-black text-primary leading-none">{booking.seatNumber}</p>
+                    <div className="bg-primary/5 px-4 py-2 rounded-2xl border border-primary/10 flex flex-col items-center">
+                        <p className="text-[10px] font-black text-primary uppercase">Рассадка</p>
+                        <span className="material-symbols-outlined text-primary">event_seat</span>
                     </div>
                 </div>
 
@@ -60,14 +59,12 @@ const TicketView: React.FC<TicketViewProps> = ({ booking, trip, onBack }) => {
                 </div>
             </div>
 
-            {/* Divider */}
             <div className="relative h-10 flex items-center">
                 <div className="absolute left-[-15px] size-10 bg-primary rounded-full"></div>
                 <div className="absolute right-[-15px] size-10 bg-primary rounded-full"></div>
                 <div className="w-full h-[1.5px] border-t-2 border-dashed border-slate-100 mx-8 opacity-50"></div>
             </div>
 
-            {/* QR Part */}
             <div className="p-8 flex flex-col items-center space-y-6">
                 <div className="size-52 bg-slate-50 rounded-[40px] border border-slate-100 p-6 flex items-center justify-center relative shadow-inner">
                     <div className="size-full bg-white rounded-3xl border border-slate-100 flex items-center justify-center overflow-hidden">
@@ -75,7 +72,7 @@ const TicketView: React.FC<TicketViewProps> = ({ booking, trip, onBack }) => {
                     </div>
                 </div>
                 <div className="text-center">
-                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mb-1">Ticket ID</p>
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mb-1">Бронь №</p>
                     <p className="font-mono text-sm font-black text-slate-900">{booking.id.toUpperCase()}</p>
                 </div>
             </div>
@@ -85,7 +82,7 @@ const TicketView: React.FC<TicketViewProps> = ({ booking, trip, onBack }) => {
             onClick={onBack}
             className="mt-8 w-full py-4 rounded-2xl bg-white/20 text-white font-extrabold text-xs uppercase tracking-widest btn-press"
         >
-            На главную
+            Вернуться назад
         </button>
     </div>
   );
