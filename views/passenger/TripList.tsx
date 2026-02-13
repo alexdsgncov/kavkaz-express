@@ -10,37 +10,11 @@ interface PassengerTripListProps {
   selectedDate: string;
 }
 
-const RussianPlate: React.FC<{ plate: string }> = ({ plate }) => {
-  const p = plate.toUpperCase();
-  const main = p.slice(0, 6);
-  const region = p.slice(6);
-  return (
-    <div className="inline-flex items-center bg-white border-[1px] border-slate-900 rounded-[2px] px-0.5 h-5 font-mono font-bold text-slate-900 text-[9px] leading-none shrink-0 shadow-[1px_1px_0_rgba(0,0,0,0.05)]">
-      <div className="px-1 border-r-[1px] border-slate-900 h-full flex items-center gap-0.5">
-        <span>{main.slice(0,1)}</span>
-        <span>{main.slice(1,4)}</span>
-        <span>{main.slice(4,6)}</span>
-      </div>
-      <div className="flex flex-col items-center justify-center px-1 min-w-[14px]">
-        <span>{region}</span>
-        <div className="flex items-center gap-[1px] mt-[-1px]">
-          <span className="text-[4px] font-sans">RUS</span>
-          <div className="w-1.5 h-1 border-[0.1px] border-slate-300 flex flex-col">
-            <div className="bg-white h-1/3"></div>
-            <div className="bg-blue-600 h-1/3"></div>
-            <div className="bg-red-600 h-1/3"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, allUsers, onBook, onBack, selectedDate }) => {
+const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, onBook, onBack, selectedDate }) => {
   return (
     <div className="flex-1 pb-24">
       <header className="sticky top-0 bg-white/90 backdrop-blur-md z-40 border-b border-slate-100 p-4 flex items-center justify-between">
-        <button onClick={onBack} className="text-primary flex items-center">
+        <button onClick={onBack} className="text-primary p-2">
           <span className="material-symbols-outlined">arrow_back_ios_new</span>
         </button>
         <div className="text-center">
@@ -49,82 +23,68 @@ const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, allUsers, 
             {new Date(selectedDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
           </p>
         </div>
-        <div className="w-8"></div>
+        <div className="w-10"></div>
       </header>
 
       <main className="p-4 space-y-4">
         {trips.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-300">
             <span className="material-symbols-outlined text-6xl">directions_bus</span>
-            <p className="mt-4 font-bold">На эту дату рейсов пока нет.</p>
+            <p className="mt-4 font-bold">Рейсов на эту дату не найдено</p>
+            <button onClick={onBack} className="mt-4 text-primary font-bold text-sm">Выбрать другую дату</button>
           </div>
         ) : (
-          trips.map(trip => {
-            const driver = allUsers.find(u => u.id === trip.driverId);
-            return (
-              <div key={trip.id} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                      <span className="material-symbols-outlined">{trip.type === 'Sprinter' ? 'airport_shuttle' : 'directions_bus'}</span>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                         <p className="text-xs font-bold text-slate-500">{trip.type === 'Standard' ? 'Стандарт' : trip.type}</p>
-                         <RussianPlate plate={trip.busPlate} />
-                      </div>
-                      <div className="mt-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Водитель: {driver?.fullName || 'Загрузка...'}</span>
-                      </div>
-                    </div>
+          trips.map(trip => (
+            <div key={trip.id} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-5 animate-in fade-in slide-in-from-bottom-4">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                    <span className="material-symbols-outlined text-3xl">airport_shuttle</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xl font-black text-slate-900 tracking-tight">{trip.price.toLocaleString()} ₽</p>
+                  <div>
+                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{trip.type} Express</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{trip.busPlate}</p>
                   </div>
                 </div>
-
-                <div className="flex gap-4 relative">
-                  <div className="flex flex-col items-center py-1 shrink-0">
-                    <div className="size-2.5 rounded-full border-2 border-primary bg-white z-10"></div>
-                    <div className="w-[1.5px] flex-1 bg-slate-100 my-1"></div>
-                    <div className="size-2.5 rounded-full bg-slate-300 z-10"></div>
-                  </div>
-                  <div className="flex-1 space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm font-black leading-none">{trip.departureTime}</p>
-                        <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">Назрань</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{trip.departureAddress}</p>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm font-black leading-none">{trip.arrivalTime}</p>
-                        <p className="text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">Москва</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{trip.arrivalAddress}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                  <div className="flex flex-col">
-                    <span className={`text-[10px] font-black uppercase ${trip.availableSeats < 5 ? 'text-red-500 animate-pulse' : 'text-slate-400'}`}>
-                      {trip.availableSeats < 5 ? `Осталось ${trip.availableSeats} мест!` : `Свободно: ${trip.availableSeats}`}
-                    </span>
-                    <a href={`tel:${driver?.phoneNumber}`} className="text-[10px] text-primary font-bold mt-1 underline">Позвонить водителю</a>
-                  </div>
-                  <button 
-                    onClick={() => onBook(trip.id)} 
-                    disabled={trip.availableSeats === 0}
-                    className="bg-primary disabled:bg-slate-200 px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-lg shadow-primary/20 transition-transform active:scale-95"
-                  >
-                    Забронировать
-                  </button>
+                <div className="text-right">
+                  <p className="text-2xl font-black text-primary">{trip.price} ₽</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">Оплата при посадке</p>
                 </div>
               </div>
-            );
-          })
+
+              <div className="flex gap-4 items-center">
+                <div className="flex-1">
+                  <p className="text-lg font-black leading-none">{trip.departureTime}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">Назрань</p>
+                </div>
+                <div className="flex-[2] flex flex-col items-center px-4 relative">
+                  <div className="w-full h-[1px] bg-slate-200 dashed relative">
+                     <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2">
+                        <span className="material-symbols-outlined text-slate-300 text-sm">trending_flat</span>
+                     </span>
+                  </div>
+                  <p className="text-[9px] text-slate-400 font-bold mt-2 uppercase">~18-20 часов</p>
+                </div>
+                <div className="flex-1 text-right">
+                  <p className="text-lg font-black leading-none">{trip.arrivalTime}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">Москва</p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Свободно</p>
+                  <p className="text-sm font-black text-slate-700">{trip.availableSeats} из {trip.totalSeats} мест</p>
+                </div>
+                <button 
+                  onClick={() => onBook(trip.id)}
+                  className="bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                >
+                  Забронировать
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </main>
     </div>
