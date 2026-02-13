@@ -7,18 +7,62 @@ class SupabaseStore {
     return getSupabase();
   }
 
+  // Вспомогательный метод для маппинга из БД (snake_case) в приложение (camelCase)
+  private mapTripFromDb(t: any): Trip {
+    return {
+      id: t.id,
+      driverId: t.driver_id,
+      date: t.date,
+      price: t.price,
+      totalSeats: t.total_seats,
+      availableSeats: t.available_seats,
+      from: t.from,
+      to: t.to,
+      departureAddress: t.departure_address,
+      arrivalAddress: t.arrival_address,
+      departureTime: t.departure_time,
+      arrivalTime: t.arrival_time,
+      busPlate: t.bus_plate,
+      type: t.type
+    };
+  }
+
+  // Вспомогательный метод для маппинга из приложения в БД (snake_case)
+  private mapTripToDb(t: Trip) {
+    return {
+      id: t.id,
+      driver_id: t.driverId,
+      date: t.date,
+      price: t.price,
+      total_seats: t.totalSeats,
+      available_seats: t.availableSeats,
+      from: t.from,
+      to: t.to,
+      departure_address: t.departureAddress,
+      arrival_address: t.arrivalAddress,
+      departure_time: t.departureTime,
+      arrival_time: t.arrivalTime,
+      bus_plate: t.busPlate,
+      type: t.type
+    };
+  }
+
   async selectTrips(): Promise<Trip[]> {
     const c = this.client;
     if (!c) return [];
     try {
+      // Получаем начало сегодняшнего дня в ISO для фильтрации
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const { data, error } = await c
         .from('trips')
         .select('*')
-        .gte('date', new Date().toISOString())
+        .gte('date', today.toISOString())
         .order('date', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []).map(this.mapTripFromDb);
     } catch (e) {
       console.error('Error fetching trips:', e);
       return [];
@@ -48,11 +92,15 @@ class SupabaseStore {
     const c = this.client;
     if (!c) return false;
     try {
+      const dbTrip = this.mapTripToDb(trip);
       const { error } = await c
         .from('trips')
-        .upsert(trip);
+        .upsert(dbTrip);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error during upsert:', error);
+        throw error;
+      }
       return true;
     } catch (e) {
       console.error('Error saving trip:', e);

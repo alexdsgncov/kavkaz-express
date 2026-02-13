@@ -109,7 +109,6 @@ const App: React.FC = () => {
       setUser(driverData);
       localStorage.setItem(SESSION_KEY, JSON.stringify(driverData));
       
-      // Используем setTimeout, чтобы гарантировать, что React обработал обновление пользователя перед сменой вью
       setTimeout(() => {
         setView('driver');
         setSubView('home');
@@ -188,13 +187,22 @@ const App: React.FC = () => {
             />
           )}
           {subView === 'create-trip' && (
-            <CreateTrip driverId={user.id} initialTrip={editingTrip} onSave={async (t) => { 
-              const ok = await db.insertTrip(t);
-              if (ok) {
-                await updateData(); 
-                setSubView('home'); 
-              }
-            }} onCancel={() => setSubView('home')} />
+            <CreateTrip 
+              driverId={user.id} 
+              initialTrip={editingTrip} 
+              onSave={async (t) => { 
+                setIsLoading(true);
+                const ok = await db.insertTrip(t);
+                if (ok) {
+                  await updateData(); 
+                  setSubView('home'); 
+                } else {
+                  alert("Ошибка при сохранении рейса. Проверьте подключение к базе данных.");
+                }
+                setIsLoading(false);
+              }} 
+              onCancel={() => setSubView('home')} 
+            />
           )}
           {subView === 'manage-requests' && selectedTripForRequests && (
             <ManageRequests 
