@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { User, UserRole, Trip, Booking, BookingStatus } from './types';
 import { db } from './lib/store';
 import { sendBookingNotification } from './lib/email';
+import { sendTelegramNotification } from './lib/telegram';
 import PassengerHome from './views/passenger/Home';
 import PassengerTripList from './views/passenger/TripList';
 import MyBookings from './views/passenger/MyBookings';
@@ -61,6 +62,8 @@ const App: React.FC = () => {
   const handleBook = async (tripId: string, passengerInfo: { fullName: string, phoneNumber: string }) => {
     setIsLoading(true);
     try {
+      const trip = trips.find(t => t.id === tripId);
+      
       const userData: User = {
         id: user?.id || 'u_' + Math.random().toString(36).substr(2, 9),
         fullName: passengerInfo.fullName,
@@ -85,8 +88,27 @@ const App: React.FC = () => {
       const dbOk = await db.insertBooking(newBooking);
       
       if (dbOk) {
+        // Формируем сообщение для Telegram
+        if (trip) {
+          const message = `
+<b>🆕 Новая заявка на рейс!</b>
+
+👤 <b>Пассажир:</b> ${newBooking.passengerName}
+📞 <b>Телефон:</b> <code>${newBooking.passengerPhone}</code>
+
+📍 <b>Маршрут:</b> ${trip.from} — ${trip.to}
+📅 <b>Дата:</b> ${new Date(trip.date).toLocaleDateString('ru-RU')}
+🕒 <b>Время:</b> ${trip.departureTime}
+🚌 <b>Автобус:</b> ${trip.busPlate.toUpperCase()}
+
+<i>Подтвердите заявку в приложении.</i>
+          `.trim();
+          
+          await sendTelegramNotification(message);
+        }
+
         await sendBookingNotification(newBooking);
-        alert("Заявка успешно отправлена! Водитель перезвонит вам в ближайшее время.");
+        alert("Заявка успешно отправлена! Водитель получит уведомление и перезвонит вам.");
         await updateData();
         setSubView('my-bookings');
       } else {
@@ -113,12 +135,9 @@ const App: React.FC = () => {
       };
       
       try {
-        // Гарантируем, что профиль водителя есть в базе для удовлетворения Foreign Key
         await db.updateUserProfile(driverData);
-        
         setUser(driverData);
         localStorage.setItem(SESSION_KEY, JSON.stringify(driverData));
-        
         setView('driver');
         setSubView('home');
       } catch (err) {
@@ -207,13 +226,12 @@ const App: React.FC = () => {
               onSave={async (t) => { 
                 setIsLoading(true);
                 try {
-                  console.log("Saving trip:", t);
                   const ok = await db.insertTrip(t);
                   if (ok) {
                     await updateData(); 
                     setSubView('home'); 
                   } else {
-                    alert("Ошибка при сохранении рейса. Проверьте консоль или подключение к базе данных.");
+                    alert("Ошибка при сохранении рейса.");
                   }
                 } catch (err) {
                   console.error("Insert trip exception:", err);

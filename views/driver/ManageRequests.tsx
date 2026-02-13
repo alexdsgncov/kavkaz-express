@@ -75,20 +75,21 @@ const ManageRequests: React.FC<ManageRequestsProps> = ({ trip, bookings, allUser
         ) : (
           <div className="space-y-4">
              {bookings.map(booking => {
-               const passenger = allUsers.find(u => u.id === booking.passengerId);
+               // Fix: Use data directly from the booking object instead of relying on allUsers lookup
                return (
                  <div key={booking.id} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-4">
                    <div className="flex items-center justify-between">
                      <div className="flex items-center gap-3">
-                       <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-50 overflow-hidden">
-                          <img src={`https://picsum.photos/seed/${booking.passengerId}/100/100`} alt="Avatar" />
+                       <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-50 overflow-hidden text-slate-400">
+                          {/* Use an icon if no avatar is present, or simple fallback */}
+                          <span className="material-symbols-outlined text-2xl">account_circle</span>
                        </div>
                        <div>
                          <p className="font-bold text-sm leading-none">
-                            {passenger?.lastName} {passenger?.firstName} {passenger?.middleName}
+                            {booking.passengerName}
                          </p>
-                         <a href={`tel:${passenger?.phoneNumber}`} className="text-[11px] text-primary font-bold mt-1 block">
-                            +7 {passenger?.phoneNumber}
+                         <a href={`tel:${booking.passengerPhone}`} className="text-[11px] text-primary font-bold mt-1 block">
+                            {booking.passengerPhone}
                          </a>
                        </div>
                      </div>
