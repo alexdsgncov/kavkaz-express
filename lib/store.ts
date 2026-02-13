@@ -1,103 +1,127 @@
 
-import { supabase } from './supabase';
+import { getSupabase } from './supabase';
 import { User, Trip, Booking, BookingStatus } from '../types';
 
 class SupabaseStore {
-  async selectTrips(): Promise<Trip[]> {
-    const { data, error } = await supabase
-      .from('trips')
-      .select('*')
-      .gte('date', new Date().toISOString())
-      .order('date', { ascending: true });
+  private get client() {
+    const s = getSupabase();
+    if (!s) throw new Error("Supabase is not initialized. Please configure credentials.");
+    return s;
+  }
 
-    if (error) {
-      console.error('Error fetching trips:', error);
+  async selectTrips(): Promise<Trip[]> {
+    try {
+      const { data, error } = await this.client
+        .from('trips')
+        .select('*')
+        .gte('date', new Date().toISOString())
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error('Error fetching trips:', e);
       return [];
     }
-    return data || [];
   }
 
   async selectBookings(userId?: string, role?: string): Promise<Booking[]> {
-    let query = supabase.from('bookings').select('*');
-    
-    if (userId && role === 'passenger') {
-      query = query.eq('passengerId', userId);
-    }
+    try {
+      let query = this.client.from('bookings').select('*');
+      
+      if (userId && role === 'passenger') {
+        query = query.eq('passengerId', userId);
+      }
 
-    const { data, error } = await query;
-    if (error) {
-      console.error('Error fetching bookings:', error);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error('Error fetching bookings:', e);
       return [];
     }
-    return data || [];
   }
 
   async insertTrip(trip: Trip): Promise<boolean> {
-    const { error } = await supabase
-      .from('trips')
-      .upsert(trip);
-    
-    if (error) {
-      console.error('Error saving trip:', error);
+    try {
+      const { error } = await this.client
+        .from('trips')
+        .upsert(trip);
+      
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Error saving trip:', e);
       return false;
     }
-    return true;
   }
 
   async insertBooking(booking: Booking): Promise<boolean> {
-    const { error } = await supabase
-      .from('bookings')
-      .insert(booking);
+    try {
+      const { error } = await this.client
+        .from('bookings')
+        .insert(booking);
 
-    if (error) {
-      console.error('Error creating booking:', error);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Error creating booking:', e);
       return false;
     }
-    return true;
   }
 
   async updateBookingStatus(bookingId: string, status: BookingStatus): Promise<boolean> {
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status })
-      .eq('id', bookingId);
+    try {
+      const { error } = await this.client
+        .from('bookings')
+        .update({ status })
+        .eq('id', bookingId);
 
-    if (error) {
-      console.error('Error updating status:', error);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Error updating status:', e);
       return false;
     }
-    return true;
   }
 
   async deleteTrip(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('trips')
-      .delete()
-      .eq('id', id);
-    
-    if (error) console.error('Error deleting trip:', error);
+    try {
+      const { error } = await this.client
+        .from('trips')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    } catch (e) {
+      console.error('Error deleting trip:', e);
+    }
   }
 
   async updateUserProfile(user: User): Promise<void> {
-    const { error } = await supabase
-      .from('users')
-      .upsert({
-        id: user.id,
-        email: user.email,
-        phone_number: user.phoneNumber,
-        full_name: user.fullName,
-        role: user.role,
-        first_name: user.firstName,
-        last_name: user.lastName,
-        middle_name: user.middleName
-      });
-    
-    if (error) console.error('Error updating profile:', error);
+    try {
+      const { error } = await this.client
+        .from('users')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          phone_number: user.phoneNumber,
+          full_name: user.fullName,
+          role: user.role,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          middle_name: user.middleName
+        });
+      
+      if (error) throw error;
+    } catch (e) {
+      console.error('Error updating profile:', e);
+    }
   }
 
   async testConnection(): Promise<boolean> {
     try {
-      const { data, error } = await supabase.from('trips').select('id').limit(1);
+      const { error } = await this.client.from('trips').select('id').limit(1);
       return !error;
     } catch {
       return false;

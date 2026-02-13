@@ -2,9 +2,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, UserRole, Trip, Booking, BookingStatus } from './types';
 import { db } from './lib/store';
+import { getSupabaseConfig } from './lib/supabase';
 import Login from './views/Login';
 import RoleSelection from './views/RoleSelection';
 import ProfileSetup from './views/ProfileSetup';
+import SupabaseConfig from './views/SupabaseConfig';
 import PassengerHome from './views/passenger/Home';
 import PassengerTripList from './views/passenger/TripList';
 import MyBookings from './views/passenger/MyBookings';
@@ -26,6 +28,9 @@ const App: React.FC = () => {
   const [selectedTripForRequests, setSelectedTripForRequests] = useState<Trip | null>(null);
 
   const updateData = useCallback(async () => {
+    const config = getSupabaseConfig();
+    if (!config.url || !config.key) return;
+
     setIsLoading(true);
     try {
       const [tripsData, bookingsData] = await Promise.all([
@@ -43,6 +48,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
+      const config = getSupabaseConfig();
+      if (!config.url || !config.key) {
+        setView('supabase-config');
+        return;
+      }
+
       await updateData();
       const existing = localStorage.getItem(SESSION_KEY);
       if (existing) {
@@ -98,6 +109,13 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-bg-light flex flex-col items-center justify-center">
       <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
     </div>
+  );
+
+  if (view === 'supabase-config') return (
+    <SupabaseConfig onConfigured={() => {
+      setView('loading');
+      setTimeout(() => window.location.reload(), 500);
+    }} />
   );
 
   return (
