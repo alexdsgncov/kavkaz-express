@@ -12,15 +12,17 @@ interface DriverDashboardProps {
   onManageTrip: (trip: Trip) => void;
   onEditTrip: (trip: Trip) => void;
   onDeleteTrip: (id: string) => void;
+  onLogout?: () => void;
 }
 
-const DriverDashboard: React.FC<DriverDashboardProps> = ({ user, trips, bookings, onCreateTrip, onEditTrip, onDeleteTrip, onManageTrip }) => {
+const DriverDashboard: React.FC<DriverDashboardProps> = ({ user, trips, bookings, onCreateTrip, onEditTrip, onDeleteTrip, onManageTrip, onLogout }) => {
   return (
     <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar pb-20">
-      <header className="flex justify-between items-center">
+      <header className="flex justify-between items-start">
         <div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Личный кабинет водителя</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Панель управления</p>
           <h1 className="text-2xl font-black">{user.fullName}</h1>
+          <button onClick={onLogout} className="text-[10px] text-red-500 font-bold uppercase mt-2">Выйти из режима водителя</button>
         </div>
         <button onClick={onCreateTrip} className="size-12 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
           <span className="material-symbols-outlined text-3xl">add</span>
@@ -37,8 +39,10 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ user, trips, bookings
         ) : (
           trips.map(trip => {
             const tripBookings = bookings.filter(b => b.tripId === trip.id);
+            const pendingCount = tripBookings.filter(b => b.status === 'pending').length;
+            
             return (
-              <div key={trip.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/40 space-y-5 animate-in slide-in-from-bottom-4">
+              <div key={trip.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/40 space-y-5">
                 <div className="flex justify-between items-start">
                    <div className="flex items-center gap-3">
                       <div className="size-12 rounded-2xl bg-slate-50 flex flex-col items-center justify-center font-black text-slate-400">
@@ -46,10 +50,10 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ user, trips, bookings
                          <span className="text-lg">{new Date(trip.date).getDate()}</span>
                       </div>
                       <div>
-                        <p className="font-black text-slate-900 leading-none">Ингушетия — Москва</p>
-                        <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-slate-400">
+                        <p className="font-black text-slate-900 leading-none">Назрань — Москва</p>
+                        <div className="flex items-center gap-1 mt-1 text-[10px] font-bold text-slate-400 uppercase">
                           <span className="material-symbols-outlined text-xs">directions_bus</span>
-                          <span>{trip.busPlate.toUpperCase()}</span>
+                          <span>{trip.busPlate}</span>
                         </div>
                       </div>
                    </div>
@@ -59,8 +63,9 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ user, trips, bookings
                 <div className="flex gap-2">
                    <button 
                       onClick={() => onManageTrip(trip)}
-                      className="flex-[2] py-4 bg-primary text-white font-black rounded-2xl text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center justify-center gap-2"
+                      className="flex-[2] py-4 bg-primary text-white font-black rounded-2xl text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 relative"
                    >
+                      {pendingCount > 0 && <span className="absolute -top-1 -right-1 size-5 bg-red-500 rounded-full text-[10px] flex items-center justify-center animate-bounce">{pendingCount}</span>}
                       <span className="material-symbols-outlined text-sm">group</span>
                       Заявки ({tripBookings.length})
                    </button>
