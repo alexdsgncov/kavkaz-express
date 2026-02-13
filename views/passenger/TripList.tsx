@@ -104,7 +104,10 @@ const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, onBook, on
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-white rounded-t-[40px] p-8 space-y-6 shadow-2xl animate-slide-in">
             <div className="flex justify-between items-center">
-              <h3 className="text-xl font-black">Данные пассажира</h3>
+              <div>
+                <h3 className="text-xl font-black">Данные пассажира</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Бронирование на {selectedTrip.departureTime}</p>
+              </div>
               <button onClick={() => setStep('list')} className="size-10 rounded-full bg-slate-50 flex items-center justify-center btn-press">
                 <span className="material-symbols-outlined text-slate-400">close</span>
               </button>
@@ -118,7 +121,7 @@ const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, onBook, on
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Фамилия Имя Отчество"
-                  className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:border-primary/20"
+                  className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:border-primary/20 focus:bg-white"
                 />
               </div>
               <div className="space-y-1">
@@ -127,8 +130,16 @@ const PassengerTripList: React.FC<PassengerTripListProps> = ({ trips, onBook, on
                   type="tel" 
                   value={phone}
                   onChange={(e) => handlePhoneChange(e.target.value)}
-                  className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:border-primary/20"
+                  className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:border-primary/20 focus:bg-white"
                 />
+              </div>
+              
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-2 text-primary">
+                    <span className="material-symbols-outlined text-sm">info</span>
+                    <p className="text-[10px] font-bold uppercase">Свободная рассадка</p>
+                </div>
+                <p className="text-[9px] text-slate-400 mt-1 leading-tight">Занимайте любое свободное место при посадке в автобус.</p>
               </div>
               
               <button 

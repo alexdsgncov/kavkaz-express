@@ -17,7 +17,7 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigat
       {/* Header */}
       <div className="px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div onClick={onAdminClick} className="size-12 rounded-full bg-white shadow-sm border border-slate-100 flex items-center justify-center text-primary btn-press">
+          <div onClick={onAdminClick} className="size-12 rounded-full bg-white shadow-sm border border-slate-100 flex items-center justify-center text-primary btn-press cursor-pointer">
             <span className="material-symbols-outlined text-2xl">account_circle</span>
           </div>
           <div>
@@ -48,7 +48,7 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigat
                 <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Откуда</p>
                 <p className="text-xl font-extrabold">Назрань</p>
             </div>
-            <div className="size-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/30 z-10 btn-press">
+            <div className="size-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/30 z-10">
                 <span className="material-symbols-outlined text-xl">swap_horiz</span>
             </div>
             <div className="space-y-1 text-right">
@@ -66,7 +66,7 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigat
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none border border-transparent focus:border-primary/20 transition-all appearance-none"
+                        className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none border border-slate-100 focus:border-primary/40 focus:bg-white transition-all appearance-none"
                     />
                     <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">calendar_today</span>
                 </div>
@@ -74,9 +74,13 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigat
 
             <button 
                 onClick={() => onSearch(date)}
-                className="w-full bg-secondary py-5 rounded-2xl text-white font-extrabold text-sm uppercase tracking-widest shadow-xl shadow-slate-900/10 btn-press"
+                className="w-full group relative overflow-hidden bg-primary py-5 rounded-2xl text-white font-extrabold text-sm uppercase tracking-widest shadow-xl shadow-primary/25 btn-press"
             >
-                Найти билеты
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                    Найти билеты
+                    <span className="material-symbols-outlined text-lg">search</span>
+                </span>
             </button>
         </div>
       </div>
@@ -106,11 +110,11 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigat
         </div>
       </div>
 
-      <div className="mt-4 mx-6 p-6 bg-primary rounded-4xl text-white relative overflow-hidden group btn-press mb-10">
+      <div className="mt-4 mx-6 p-6 bg-secondary rounded-4xl text-white relative overflow-hidden group btn-press mb-10 cursor-pointer">
           <div className="relative z-10">
               <h4 className="font-extrabold text-lg mb-1">Бизнес-класс</h4>
-              <p className="text-xs text-white/70 font-medium mb-4">Наслаждайтесь поездкой в VIP спринтерах с Wi-Fi и розетками.</p>
-              <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+              <p className="text-xs text-white/70 font-medium mb-4">VIP Спринтеры с Wi-Fi, розетками и климат-контролем.</p>
+              <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
                   Подробнее
                   <span className="material-symbols-outlined text-xs">arrow_forward</span>
               </div>

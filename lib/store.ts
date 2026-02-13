@@ -63,7 +63,7 @@ class ProductStore {
   }
 
   async createBooking(booking: Partial<Booking>): Promise<Booking> {
-    await delay(1000);
+    await delay(800);
     const bookings = this._storage.get<Booking>('bookings');
     const newBooking: Booking = {
       id: 'bk_' + Math.random().toString(36).substr(2, 9),
