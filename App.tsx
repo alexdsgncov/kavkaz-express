@@ -12,6 +12,7 @@ import Auth from './views/Auth';
 const App: React.FC = () => {
   const [sbUser, setSbUser] = useState<any>(null);
   const [profile, setProfile] = useState<User | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [view, setView] = useState<'passenger' | 'driver'>('passenger');
   const [activeScreen, setActiveScreen] = useState<string>('home');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -50,38 +51,61 @@ const App: React.FC = () => {
     timestamp: b.created_at
   });
 
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (error) throw error;
+      if (data) {
+          const userProfile: User = {
+              id: data.id,
+              fullName: data.full_name,
+              phoneNumber: data.phone_number,
+              email: '', // Email will be fetched from session if needed
+              role: data.role as UserRole
+          };
+          setProfile(userProfile);
+          if (userProfile.role === UserRole.DRIVER) setView('driver');
+      } else {
+          setProfile(null);
+      }
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      setProfile(null);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
   useEffect(() => {
+    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSbUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setIsInitializing(false);
+      }
     });
 
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSbUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else { setProfile(null); setView('passenger'); setActiveScreen('home'); }
+      const user = session?.user ?? null;
+      setSbUser(user);
+      if (user) {
+        fetchProfile(user.id);
+      } else {
+        setProfile(null);
+        setView('passenger');
+        setActiveScreen('home');
+        setIsInitializing(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-    if (data) {
-        const userProfile: User = {
-            id: data.id,
-            fullName: data.full_name,
-            phoneNumber: data.phone_number,
-            email: sbUser?.email || '',
-            role: data.role as UserRole
-        };
-        setProfile(userProfile);
-        if (userProfile.role === UserRole.DRIVER) setView('driver');
-    }
-  };
-
   useEffect(() => {
-    if (!sbUser) return;
+    if (!profile) return;
 
     const fetchAllData = async () => {
         const { data: tData } = await supabase.from('trips').select('*').order('date', { ascending: true });
@@ -99,7 +123,7 @@ const App: React.FC = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [sbUser]);
+  }, [profile]);
 
   const handleCreateBooking = async (tripId: string, info: any) => {
     const trip = trips.find(t => t.id === tripId);
@@ -175,8 +199,18 @@ const App: React.FC = () => {
     await supabase.from('trips').update({ status }).eq('id', id);
   };
 
-  if (!sbUser) return <Auth onAuthSuccess={() => {}} />;
-  if (!profile) return <div className="flex-1 flex items-center justify-center bg-white"><div className="animate-spin size-8 border-4 border-primary border-t-transparent rounded-full"></div></div>;
+  if (isInitializing) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-white h-screen">
+        <div className="animate-spin size-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
+
+  // Если нет сессии ИЛИ сессия есть, но профиль еще не загружен/создан, показываем Auth
+  if (!sbUser || !profile) {
+    return <Auth onAuthSuccess={() => {}} />;
+  }
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-bg-soft shadow-2xl relative flex flex-col overflow-hidden">
