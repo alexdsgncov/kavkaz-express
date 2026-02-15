@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from "./lib/supabase";
 import { User, UserRole, Trip, Booking, TripStatus, BookingStatus } from './types';
-import { sendBookingNotification } from './lib/email';
 import PassengerHome from './views/passenger/Home';
 import PassengerTripList from './views/passenger/TripList';
 import DriverDashboard from './views/driver/Dashboard';
@@ -106,25 +105,16 @@ const App: React.FC = () => {
     const trip = trips.find(t => t.id === tripId);
     if (!trip || trip.availableSeats <= 0) return;
 
-    const { data: newBooking, error } = await supabase.from('bookings').insert({
+    const { error } = await supabase.from('bookings').insert({
         trip_id: tripId,
         passenger_id: profile?.id,
         passenger_name: info.fullName,
         passenger_phone: info.phoneNumber,
         status: 'pending'
-    }).select().single();
+    });
 
     if (!error) {
-        // Уменьшаем количество мест
         await supabase.from('trips').update({ available_seats: trip.availableSeats - 1 }).eq('id', tripId);
-        
-        // Отправляем уведомление на Email
-        sendBookingNotification(trip, { 
-            id: newBooking?.id,
-            passengerName: info.fullName,
-            passengerPhone: info.phoneNumber
-        });
-
         setActiveScreen('home');
     } else {
         alert("Ошибка бронирования: " + error.message);
