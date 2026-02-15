@@ -30,15 +30,12 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
   const otpRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
   const pinRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
-  // Шаг 1: Проверка Email
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Проверяем, есть ли такой профиль
-    const { data, error } = await supabase.from('profiles').select('id').eq('email_link', email).maybeSingle();
+    const { data } = await supabase.from('profiles').select('id').eq('email_link', email).maybeSingle();
     
-    // Генерируем OTP
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     setGeneratedOtp(code);
     
@@ -47,12 +44,11 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
       setIsNewUser(!data);
       setStep(AuthStep.VERIFY);
     } else {
-      alert("Не удалось отправить код. Попробуйте позже.");
+      alert("Ошибка сервиса почты. Пожалуйста, проверьте настройки EmailJS или консоль разработчика.");
     }
     setLoading(false);
   };
 
-  // Шаг 2: Верификация OTP
   const handleOtpChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
     const newOtp = [...otp];
@@ -77,7 +73,6 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     }
   }, [otp]);
 
-  // Шаг 3: Завершение профиля и создание аккаунта (для новых)
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const pinStr = pin.join('');
@@ -87,7 +82,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     try {
       const { data, error } = await supabase.auth.signUp({ 
           email, 
-          password: `pin_${pinStr}`, // Используем ПИН как часть пароля
+          password: `pin_${pinStr}`,
           options: { data: { full_name: fullName, phone_number: phone, role } }
       });
       if (error) throw error;
@@ -98,7 +93,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               full_name: fullName,
               phone_number: phone,
               role: role,
-              email_link: email // Связываем для будущих входов
+              email_link: email 
           });
       }
       onAuthSuccess();
@@ -109,7 +104,6 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     }
   };
 
-  // Шаг 4: Вход по ПИНу (для старых)
   const handlePinChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
     const newPin = [...pin];
@@ -149,14 +143,14 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
       {step === AuthStep.EMAIL && (
         <div className="animate-slide-in">
           <h1 className="text-3xl font-black text-slate-900 leading-tight mb-2">Авторизация</h1>
-          <p className="text-slate-400 font-medium mb-10">Введите email для получения одноразового кода</p>
+          <p className="text-slate-400 font-medium mb-10">Введите email для получения кода</p>
           <form onSubmit={handleEmailSubmit} className="space-y-6">
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email адрес</label>
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:border-primary/20 transition-all" placeholder="example@mail.ru" />
             </div>
             <button type="submit" disabled={loading} className="w-full bg-primary py-5 rounded-2xl text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 btn-press disabled:bg-slate-300">
-              {loading ? 'Отправка...' : 'Продолжить'}
+              {loading ? 'Отправка...' : 'Получить код'}
             </button>
           </form>
         </div>
@@ -165,11 +159,17 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
       {step === AuthStep.VERIFY && (
         <div className="animate-slide-in">
           <h1 className="text-3xl font-black text-slate-900 leading-tight mb-2">Код подтверждения</h1>
-          <p className="text-slate-400 font-medium mb-10">Мы отправили 4-значный код на <b>{email}</b></p>
-          <div className="flex justify-between gap-3 mb-10">
+          <p className="text-slate-400 font-medium mb-4">Мы отправили 4-значный код на <b>{email}</b></p>
+          <div className="flex justify-between gap-3 mb-8">
             {otp.map((digit, i) => (
               <input key={i} ref={otpRefs[i]} type="tel" maxLength={1} value={digit} onChange={(e) => handleOtpChange(i, e.target.value)} className="size-16 bg-slate-50 border-2 border-slate-100 rounded-2xl text-center text-2xl font-black focus:border-primary focus:bg-white outline-none transition-all" />
             ))}
+          </div>
+          <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 mb-8">
+            <p className="text-[10px] text-amber-700 leading-relaxed font-bold">
+              <span className="material-symbols-outlined text-xs align-middle mr-1">info</span>
+              Если письмо не приходит более 1 минуты, проверьте папку "Спам" или посмотрите код в консоли браузера (F12).
+            </p>
           </div>
           <button onClick={() => setStep(AuthStep.EMAIL)} className="w-full text-slate-400 font-bold text-xs uppercase tracking-widest text-center">Изменить почту</button>
         </div>
@@ -177,12 +177,12 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
 
       {step === AuthStep.PROFILE && (
         <div className="animate-slide-in">
-          <h1 className="text-3xl font-black text-slate-900 leading-tight mb-2">Почти готово</h1>
-          <p className="text-slate-400 font-medium mb-8">Заполните данные и создайте ПИН-код для входа</p>
+          <h1 className="text-3xl font-black text-slate-900 leading-tight mb-2">Регистрация</h1>
+          <p className="text-slate-400 font-medium mb-8">Заполните данные для создания профиля</p>
           <form onSubmit={handleProfileSubmit} className="space-y-5">
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ФИО</label>
-              <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white transition-all" placeholder="Имя Фамилия" />
+              <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white transition-all" placeholder="Иван Иванов" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Телефон</label>
@@ -196,7 +196,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
                 </div>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Придумайте 4-значный ПИН</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ваш 4-значный ПИН</label>
               <div className="flex justify-between gap-3">
                 {pin.map((digit, i) => (
                   <input key={i} ref={pinRefs[i]} type="password" maxLength={1} value={digit} onChange={(e) => handlePinChange(i, e.target.value)} className="size-14 bg-slate-50 border-2 border-slate-100 rounded-2xl text-center text-2xl font-black focus:border-primary outline-none" />
@@ -204,7 +204,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               </div>
             </div>
             <button type="submit" disabled={loading || pin.join('').length < 4} className="w-full bg-success py-5 rounded-2xl text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-success/20 btn-press mt-4 disabled:bg-slate-300">
-              {loading ? 'Создание...' : 'Завершить регистрацию'}
+              {loading ? 'Создание...' : 'Завершить'}
             </button>
           </form>
         </div>
@@ -213,7 +213,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
       {step === AuthStep.PIN_LOGIN && (
         <div className="animate-slide-in text-center">
           <h1 className="text-3xl font-black text-slate-900 leading-tight mb-2">Введите ПИН</h1>
-          <p className="text-slate-400 font-medium mb-10">Введите ваш секретный код для входа</p>
+          <p className="text-slate-400 font-medium mb-10">Введите ваш секретный код</p>
           <div className="flex justify-center gap-4 mb-10">
             {pin.map((digit, i) => (
               <div key={i} className={`size-4 rounded-full border-2 transition-all ${digit ? 'bg-primary border-primary scale-125' : 'bg-slate-100 border-slate-200'}`}></div>
