@@ -60,7 +60,7 @@ const App: React.FC = () => {
               id: data.id,
               fullName: data.full_name,
               phoneNumber: data.phone_number,
-              email: '', // Email will be fetched from session if needed
+              email: '',
               role: data.role as UserRole
           };
           setProfile(userProfile);
@@ -77,7 +77,6 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSbUser(session?.user ?? null);
       if (session?.user) {
@@ -87,7 +86,6 @@ const App: React.FC = () => {
       }
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const user = session?.user ?? null;
       setSbUser(user);
@@ -146,14 +144,16 @@ const App: React.FC = () => {
   };
 
   const handleSaveTrip = async (tripData: any) => {
+    if (!profile) return;
+
     const dbData = {
-        driver_id: profile?.id,
+        driver_id: profile.id,
         date: tripData.date,
         price: tripData.price,
         total_seats: tripData.totalSeats,
         available_seats: tripData.availableSeats,
-        from: tripData.from,
-        to: tripData.to,
+        from: tripData.from || 'Ингушетия',
+        to: tripData.to || 'Москва',
         departure_time: tripData.departureTime,
         arrival_time: tripData.arrivalTime,
         bus_plate: tripData.busPlate,
@@ -161,23 +161,32 @@ const App: React.FC = () => {
         status: tripData.status || 'scheduled',
         departure_address: tripData.departureAddress,
         arrival_address: tripData.arrivalAddress,
-        type: tripData.type
+        type: tripData.type || 'Standard'
     };
 
-    let error;
-    if (selectedTrip) {
-        const { error: err } = await supabase.from('trips').update(dbData).eq('id', selectedTrip.id);
-        error = err;
-    } else {
-        const { error: err } = await supabase.from('trips').insert(dbData);
-        error = err;
-    }
+    try {
+        let error;
+        if (selectedTrip) {
+            const { error: err } = await supabase.from('trips').update(dbData).eq('id', selectedTrip.id);
+            error = err;
+        } else {
+            const { error: err } = await supabase.from('trips').insert(dbData);
+            error = err;
+        }
 
-    if (!error) {
-        setActiveScreen('home');
-        setSelectedTrip(null);
-    } else {
-        alert("Ошибка сохранения: " + error.message);
+        if (!error) {
+            setActiveScreen('home');
+            setSelectedTrip(null);
+        } else {
+            console.error("Supabase Save Error:", error);
+            if (error.message.includes('arrival_address')) {
+                alert("Ошибка: В базе данных отсутствует колонка 'arrival_address'. Запустите ремонтный SQL скрипт.");
+            } else {
+                alert("Ошибка сохранения: " + error.message);
+            }
+        }
+    } catch (err: any) {
+        alert("Критическая ошибка: " + err.message);
     }
   };
 
@@ -207,7 +216,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Если нет сессии ИЛИ сессия есть, но профиль еще не загружен/создан, показываем Auth
   if (!sbUser || !profile) {
     return <Auth onAuthSuccess={() => {}} />;
   }
