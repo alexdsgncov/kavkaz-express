@@ -66,6 +66,7 @@ const App: React.FC = () => {
           };
           setProfile(userProfile);
           if (userProfile.role === UserRole.DRIVER) setView('driver');
+          else setView('passenger');
       } else {
           setProfile(null);
       }
@@ -124,6 +125,14 @@ const App: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('kx_last_email'); // Опционально: оставить, если хотим быстрый вход
+    setSbUser(null);
+    setProfile(null);
+    setActiveScreen('home');
+  };
+
   const handleCreateBooking = async (tripId: string, info: any) => {
     const trip = trips.find(t => t.id === tripId);
     if (!trip || trip.availableSeats <= 0) return;
@@ -179,12 +188,7 @@ const App: React.FC = () => {
             setActiveScreen('home');
             setSelectedTrip(null);
         } else {
-            console.error("Supabase Save Error:", error);
-            if (error.message.includes('arrival_address')) {
-                alert("Ошибка: В базе данных отсутствует колонка 'arrival_address'. Запустите ремонтный SQL скрипт.");
-            } else {
-                alert("Ошибка сохранения: " + error.message);
-            }
+            alert("Ошибка сохранения: " + error.message);
         }
     } catch (err: any) {
         alert("Критическая ошибка: " + err.message);
@@ -236,6 +240,7 @@ const App: React.FC = () => {
                     onSearch={(d) => { setSelectedDate(d); setActiveScreen('trips'); }}
                     onNavigateBookings={() => setActiveScreen('bookings')}
                     onAdminClick={() => profile.role === UserRole.DRIVER && setView('driver')}
+                    onLogout={handleLogout}
                 />
             ) : activeScreen === 'trips' ? (
                 <PassengerTripList 
@@ -265,7 +270,7 @@ const App: React.FC = () => {
                     onManageTrip={(t) => { setSelectedTrip(t); setActiveScreen('manage'); }}
                     onEditTrip={(t) => { setSelectedTrip(t); setActiveScreen('create-trip'); }} 
                     onDeleteTrip={async (id) => { if(confirm("Удалить?")) await supabase.from('trips').delete().eq('id', id); }}
-                    onLogout={async () => { await supabase.auth.signOut(); }}
+                    onLogout={handleLogout}
                 />
             ) : activeScreen === 'create-trip' ? (
                 <CreateTrip 

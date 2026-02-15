@@ -7,9 +7,10 @@ interface PassengerHomeProps {
   onSearch: (date: string) => void;
   onNavigateBookings: () => void;
   onAdminClick: () => void;
+  onLogout: () => void;
 }
 
-const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigateBookings, onAdminClick }) => {
+const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigateBookings, onAdminClick, onLogout }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   return (
@@ -25,12 +26,20 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigat
             <h2 className="text-sm font-bold text-slate-900 truncate max-w-[120px]">{user.fullName || 'Гость'}</h2>
           </div>
         </div>
-        <button 
-          onClick={onNavigateBookings}
-          className="size-12 rounded-2xl glass flex items-center justify-center text-slate-900 shadow-sm border border-white/40 btn-press"
-        >
-          <span className="material-symbols-outlined">confirmation_number</span>
-        </button>
+        <div className="flex items-center gap-2">
+            <button 
+                onClick={onNavigateBookings}
+                className="size-12 rounded-2xl bg-white flex items-center justify-center text-slate-900 shadow-sm border border-slate-100 btn-press"
+            >
+                <span className="material-symbols-outlined">confirmation_number</span>
+            </button>
+            <button 
+                onClick={onLogout}
+                className="size-12 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 shadow-sm border border-red-100 btn-press"
+            >
+                <span className="material-symbols-outlined">logout</span>
+            </button>
+        </div>
       </div>
 
       {/* Hero Section */}
@@ -76,7 +85,6 @@ const PassengerHome: React.FC<PassengerHomeProps> = ({ user, onSearch, onNavigat
                 onClick={() => onSearch(date)}
                 className="w-full relative overflow-hidden bg-primary py-5 rounded-2xl text-white font-extrabold text-sm uppercase tracking-widest shadow-xl shadow-primary/30 active:scale-95 transition-all duration-200 group"
             >
-                {/* Эффект сияния при наведении (CSS анимация в index.html) */}
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></div>
                 
                 <span className="relative z-10 flex items-center justify-center gap-2">

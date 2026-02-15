@@ -31,8 +31,15 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
   const otpRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
   const pinRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
-  // Проверяем статус при загрузке: если юзер уже есть в Auth, но мы тут, значит нужен профиль или пин
+  // Проверяем наличие сохраненного email для быстрого входа
   useEffect(() => {
+    const savedEmail = localStorage.getItem('kx_last_email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setStep(AuthStep.PIN_LOGIN);
+      setIsNewUser(false);
+    }
+
     const checkStatus = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -42,8 +49,8 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
           setStep(AuthStep.PROFILE);
           setIsNewUser(true);
         } else {
-          // Если профиль есть, но мы всё еще в Auth, значит сессия истекла или это ПИН-вход
           setStep(AuthStep.PIN_LOGIN);
+          localStorage.setItem('kx_last_email', session.user.email || '');
         }
       }
     };
@@ -63,12 +70,6 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
         .eq('email_link', email.toLowerCase().trim())
         .maybeSingle();
       
-      if (profileErr && profileErr.message.includes('not found')) {
-        setDbError("Таблица 'profiles' не найдена. Создайте её в SQL Editor.");
-        setLoading(false);
-        return;
-      }
-
       const code = Math.floor(1000 + Math.random() * 9000).toString();
       setGeneratedOtp(code);
       
@@ -113,7 +114,6 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     
     setLoading(true);
     try {
-      // 1. Регистрация
       const { data: authData, error: authError } = await supabase.auth.signUp({ 
           email: email.toLowerCase().trim(), 
           password: `pin_${pinStr}`
@@ -134,15 +134,8 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
         }
       }
 
-      if (!userId) {
-        // Если email confirmation включен, пользователь может быть создан, но сессии нет
-        const { data: { user: retryUser } } = await supabase.auth.getUser();
-        userId = retryUser?.id;
-      }
-
       if (userId) {
-          // 2. Создаем профиль. Upsert гарантирует, что мы не упадем, если запись уже есть
-          const { error: profError } = await supabase.from('profiles').upsert({
+          await supabase.from('profiles').upsert({
               id: userId,
               full_name: fullName.trim(),
               phone_number: phone,
@@ -150,12 +143,8 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               email_link: email.toLowerCase().trim() 
           });
 
-          if (profError) throw profError;
-          
-          // Вызываем успех. App.tsx увидит и sbUser и Profile и переключит экран
+          localStorage.setItem('kx_last_email', email.toLowerCase().trim());
           onAuthSuccess();
-      } else {
-        alert("Пожалуйста, проверьте почту для подтверждения (если это настроено в Supabase).");
       }
     } catch (err: any) {
       alert(err.message);
@@ -175,6 +164,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
         alert("Неверный ПИН-код");
         setPin(['', '', '', '']);
       } else {
+        localStorage.setItem('kx_last_email', email.toLowerCase().trim());
         onAuthSuccess();
       }
     } catch (err) {
@@ -182,6 +172,13 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResetAccount = () => {
+    localStorage.removeItem('kx_last_email');
+    setEmail('');
+    setStep(AuthStep.EMAIL);
+    setPin(['', '', '', '']);
   };
 
   useEffect(() => {
@@ -275,7 +272,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
       )}
 
       {step === AuthStep.PIN_LOGIN && (
-        <div className="animate-slide-in text-center">
+        <div className="animate-slide-in text-center flex-1 flex flex-col">
           <h1 className="text-3xl font-black text-slate-900 leading-tight mb-2">Введите ПИН</h1>
           <p className="text-slate-400 font-medium mb-10">Для входа в аккаунт {email}</p>
           <div className="flex justify-center gap-4 mb-10">
@@ -283,7 +280,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               <div key={i} className={`size-4 rounded-full border-2 transition-all ${digit ? 'bg-primary border-primary scale-125' : 'bg-slate-100 border-slate-200'}`}></div>
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-4 max-w-[280px] mx-auto">
+          <div className="grid grid-cols-3 gap-4 max-w-[280px] mx-auto mb-8">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, '←'].map(val => (
               <button key={val} onClick={() => {
                 if (val === 'C') setPin(['', '', '', '']);
@@ -307,6 +304,12 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               </button>
             ))}
           </div>
+          <button 
+            onClick={handleResetAccount}
+            className="mt-auto py-4 text-slate-400 font-bold text-[10px] uppercase tracking-widest hover:text-primary transition-colors"
+          >
+            Войти в другой аккаунт
+          </button>
         </div>
       )}
     </div>
