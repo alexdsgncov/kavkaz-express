@@ -32,21 +32,28 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) return;
+    
     setLoading(true);
-    
-    const { data } = await supabase.from('profiles').select('id').eq('email_link', email).maybeSingle();
-    
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(code);
-    
-    const sent = await sendOTP(email, code);
-    if (sent) {
-      setIsNewUser(!data);
-      setStep(AuthStep.VERIFY);
-    } else {
-      alert("Ошибка сервиса почты. Пожалуйста, проверьте настройки EmailJS или консоль разработчика.");
+    try {
+      // Проверяем наличие профиля
+      const { data: profile } = await supabase.from('profiles').select('id').eq('email_link', email).maybeSingle();
+      
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      setGeneratedOtp(code);
+      
+      const sent = await sendOTP(email, code);
+      if (sent) {
+        setIsNewUser(!profile);
+        setStep(AuthStep.VERIFY);
+      } else {
+        alert("Не удалось отправить email. Проверьте консоль.");
+      }
+    } catch (err: any) {
+      console.error("Check user error:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -76,29 +83,61 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const pinStr = pin.join('');
-    if (pinStr.length < 4) return;
+    if (pinStr.length < 4) {
+      alert("Установите 4-значный ПИН-код");
+      return;
+    }
     
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({ 
+      // 1. Пытаемся зарегистрировать в Auth
+      const { data, error: signUpError } = await supabase.auth.signUp({ 
           email, 
           password: `pin_${pinStr}`,
-          options: { data: { full_name: fullName, phone_number: phone, role } }
+          options: { 
+            data: { full_name: fullName, phone_number: phone, role }
+          }
       });
-      if (error) throw error;
+
+      // Если пользователь уже есть в Auth, но мы создаем профиль заново (редкий кейс)
+      if (signUpError && signUpError.message.includes('already registered')) {
+        // Пробуем войти, чтобы получить сессию и создать профиль
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password: `pin_${pinStr}`
+        });
+        if (signInError) throw new Error("Пользователь уже существует с другим ПИН-кодом.");
+      } else if (signUpError) {
+        throw signUpError;
+      }
+
+      // Получаем ID текущего пользователя (либо нового, либо вошедшего)
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (data.user) {
-          await supabase.from('profiles').insert({
-              id: data.user.id,
+      if (user) {
+          // 2. Создаем запись в таблице профилей
+          const { error: profileError } = await supabase.from('profiles').insert({
+              id: user.id,
               full_name: fullName,
               phone_number: phone,
               role: role,
               email_link: email 
           });
+
+          if (profileError) {
+            console.error("Profile insert error:", profileError);
+            throw new Error("Ошибка при создании профиля: " + profileError.message);
+          }
+          
+          // Вызываем успех
+          onAuthSuccess();
+      } else {
+        // Если включен Confirm Email, сессии не будет сразу
+        alert("Проверьте вашу почту для подтверждения регистрации (если автоматическое подтверждение выключено в Supabase).");
       }
-      onAuthSuccess();
     } catch (err: any) {
-      alert(err.message);
+      console.error("Registration fatal error:", err);
+      alert(err.message || "Произошла ошибка при регистрации");
     } finally {
       setLoading(false);
     }
@@ -125,7 +164,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
       password: `pin_${pin.join('')}` 
     });
     if (error) {
-      alert("Неверный ПИН-код");
+      alert("Ошибка входа: " + error.message);
       setPin(['', '', '', '']);
       pinRefs[0].current?.focus();
     } else {
@@ -150,7 +189,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none focus:bg-white focus:border-primary/20 transition-all" placeholder="example@mail.ru" />
             </div>
             <button type="submit" disabled={loading} className="w-full bg-primary py-5 rounded-2xl text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 btn-press disabled:bg-slate-300">
-              {loading ? 'Отправка...' : 'Получить код'}
+              {loading ? 'Проверка...' : 'Получить код'}
             </button>
           </form>
         </div>
@@ -168,7 +207,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
           <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 mb-8">
             <p className="text-[10px] text-amber-700 leading-relaxed font-bold">
               <span className="material-symbols-outlined text-xs align-middle mr-1">info</span>
-              Если письмо не приходит более 1 минуты, проверьте папку "Спам" или посмотрите код в консоли браузера (F12).
+              Если письмо не приходит, проверьте "Спам" или код в консоли браузера (F12).
             </p>
           </div>
           <button onClick={() => setStep(AuthStep.EMAIL)} className="w-full text-slate-400 font-bold text-xs uppercase tracking-widest text-center">Изменить почту</button>
@@ -196,15 +235,16 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
                 </div>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ваш 4-значный ПИН</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Создайте ваш 4-значный ПИН</label>
               <div className="flex justify-between gap-3">
                 {pin.map((digit, i) => (
                   <input key={i} ref={pinRefs[i]} type="password" maxLength={1} value={digit} onChange={(e) => handlePinChange(i, e.target.value)} className="size-14 bg-slate-50 border-2 border-slate-100 rounded-2xl text-center text-2xl font-black focus:border-primary outline-none" />
                 ))}
               </div>
+              <p className="text-[9px] text-slate-400 font-medium ml-1">Этот ПИН будет использоваться для входа в следующий раз.</p>
             </div>
             <button type="submit" disabled={loading || pin.join('').length < 4} className="w-full bg-success py-5 rounded-2xl text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-success/20 btn-press mt-4 disabled:bg-slate-300">
-              {loading ? 'Создание...' : 'Завершить'}
+              {loading ? 'Создание...' : 'Завершить регистрацию'}
             </button>
           </form>
         </div>
@@ -213,7 +253,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
       {step === AuthStep.PIN_LOGIN && (
         <div className="animate-slide-in text-center">
           <h1 className="text-3xl font-black text-slate-900 leading-tight mb-2">Введите ПИН</h1>
-          <p className="text-slate-400 font-medium mb-10">Введите ваш секретный код</p>
+          <p className="text-slate-400 font-medium mb-10">Введите ваш секретный код для входа</p>
           <div className="flex justify-center gap-4 mb-10">
             {pin.map((digit, i) => (
               <div key={i} className={`size-4 rounded-full border-2 transition-all ${digit ? 'bg-primary border-primary scale-125' : 'bg-slate-100 border-slate-200'}`}></div>
@@ -223,7 +263,11 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
               <button key={num} onClick={() => {
                 const idx = pin.findIndex(v => v === '');
-                if (idx !== -1) handlePinChange(idx, num.toString());
+                if (idx !== -1) {
+                  const newPin = [...pin];
+                  newPin[idx] = num.toString();
+                  setPin(newPin);
+                }
               }} className="size-16 rounded-full bg-slate-50 flex items-center justify-center text-2xl font-black text-slate-900 active:bg-primary active:text-white transition-colors">{num}</button>
             ))}
             <button onClick={() => setPin(['', '', '', ''])} className="size-16 rounded-full flex items-center justify-center text-slate-400">
@@ -231,7 +275,11 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
             </button>
             <button onClick={() => {
               const idx = pin.findIndex(v => v === '');
-              if (idx !== -1) handlePinChange(idx, "0");
+              if (idx !== -1) {
+                const newPin = [...pin];
+                newPin[idx] = "0";
+                setPin(newPin);
+              }
             }} className="size-16 rounded-full bg-slate-50 flex items-center justify-center text-2xl font-black text-slate-900 active:bg-primary active:text-white transition-colors">0</button>
           </div>
           <button onClick={() => setStep(AuthStep.EMAIL)} className="mt-12 text-slate-400 font-bold text-[10px] uppercase tracking-widest">Войти под другим Email</button>
