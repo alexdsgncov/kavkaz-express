@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabase";
 import { User, UserRole, Trip, Booking, TripStatus, BookingStatus } from './types';
 import PassengerHome from './views/passenger/Home';
 import PassengerTripList from './views/passenger/TripList';
+import MyBookings from './views/passenger/MyBookings';
 import DriverDashboard from './views/driver/Dashboard';
 import ManageRequests from './views/driver/ManageRequests';
 import CreateTrip from './views/driver/CreateTrip';
@@ -204,6 +205,12 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCancelBooking = async (id: string) => {
+    if (confirm("Вы уверены, что хотите отменить бронирование?")) {
+        await handleUpdateBookingStatus(id, BookingStatus.CANCELLED);
+    }
+  };
+
   const handleUpdateTripStatus = async (id: string, status: TripStatus) => {
     await supabase.from('trips').update({ status }).eq('id', id);
   };
@@ -237,6 +244,13 @@ const App: React.FC = () => {
                     onBack={() => setActiveScreen('home')}
                     onBook={handleCreateBooking}
                     initialUserData={{ fullName: profile.fullName, phoneNumber: profile.phoneNumber }}
+                />
+            ) : activeScreen === 'bookings' ? (
+                <MyBookings 
+                    bookings={bookings.filter(b => b.passengerId === profile.id)}
+                    trips={trips}
+                    onBack={() => setActiveScreen('home')}
+                    onCancelBooking={handleCancelBooking}
                 />
             ) : null
         ) : (
