@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { UserRole } from '../types';
@@ -64,18 +63,26 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     setLoading(true);
     setDbError(null);
     try {
-      const { data: profile, error: profileErr } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('id')
         .eq('email_link', email.toLowerCase().trim())
         .maybeSingle();
       
+      // Если пользователь найден, сразу просим ПИН
+      if (profile) {
+          setStep(AuthStep.PIN_LOGIN);
+          setIsNewUser(false);
+          setLoading(false);
+          return;
+      }
+
       const code = Math.floor(1000 + Math.random() * 9000).toString();
       setGeneratedOtp(code);
       
       const sent = await sendOTP(email, code);
       if (sent) {
-        setIsNewUser(!profile);
+        setIsNewUser(true);
         setStep(AuthStep.VERIFY);
       } else {
         alert("Не удалось отправить код.");
@@ -198,7 +205,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
   return (
     <div className="flex-1 bg-white flex flex-col px-6 pt-12 animate-slide-in overflow-y-auto no-scrollbar pb-10 relative h-screen">
       <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-8 shrink-0">
-        <span className="material-symbols-outlined text-4xl">lock_open</span>
+        <img src="/icon.svg" className="size-10" alt="logo" />
       </div>
 
       {dbError && (

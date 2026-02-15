@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from "./lib/supabase";
 import { User, UserRole, Trip, Booking, TripStatus, BookingStatus } from './types';
@@ -127,7 +126,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('kx_last_email'); // Опционально: оставить, если хотим быстрый вход
+    // Мы НЕ удаляем kx_last_email, чтобы пользователь мог войти по ПИН на этом же устройстве
     setSbUser(null);
     setProfile(null);
     setActiveScreen('home');
