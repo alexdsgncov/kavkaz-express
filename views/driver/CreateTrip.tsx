@@ -1,16 +1,16 @@
 
 import React, { useState, useRef } from 'react';
-import { Trip } from '../../types';
+import { Trip, TripStatus } from '../../types';
 
 interface CreateTripProps {
   driverId: string;
   initialTrip?: Trip | null;
-  onSave: (trip: Trip) => void;
+  onSave: (trip: Partial<Trip>) => void;
   onCancel: () => void;
 }
 
 const CreateTrip: React.FC<CreateTripProps> = ({ driverId, initialTrip, onSave, onCancel }) => {
-  const [date, setDate] = useState(initialTrip?.date.split('T')[0] || new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(initialTrip?.date || new Date().toISOString().split('T')[0]);
   const [price, setPrice] = useState(initialTrip?.price.toString() || '4500');
   const [seats, setSeats] = useState(initialTrip?.totalSeats.toString() || '18');
   const [type, setType] = useState(initialTrip?.type || 'Standard');
@@ -38,13 +38,11 @@ const CreateTrip: React.FC<CreateTripProps> = ({ driverId, initialTrip, onSave, 
       return;
     }
     onSave({
-      id: initialTrip?.id || 'trip_' + Math.random().toString(36).substr(2, 9),
       driverId,
-      date: new Date(date).toISOString(),
+      date,
       price: parseInt(price),
       totalSeats: parseInt(seats),
       availableSeats: initialTrip ? initialTrip.availableSeats : parseInt(seats),
-      occupiedSeats: initialTrip?.occupiedSeats || [],
       from: 'Ингушетия',
       to: 'Москва',
       departureAddress: depAddress,
@@ -54,7 +52,7 @@ const CreateTrip: React.FC<CreateTripProps> = ({ driverId, initialTrip, onSave, 
       busPlate: busPlate.toLowerCase(),
       busModel: busModel,
       type: type,
-      status: initialTrip?.status || ({} as any) // Status will be handled by store/defaults
+      status: initialTrip?.status || TripStatus.SCHEDULED
     });
   };
 

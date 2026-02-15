@@ -1,216 +1,244 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { User, UserRole, Trip, Booking, BookingStatus, TripStatus } from './types';
-import { db } from './lib/store';
-import { sendTelegramNotification } from './lib/telegram';
+import React, { useState, useEffect } from 'react';
+import { supabase } from "./lib/supabase";
+import { User, UserRole, Trip, Booking, TripStatus, BookingStatus } from './types';
+import { sendBookingNotification } from './lib/email';
 import PassengerHome from './views/passenger/Home';
 import PassengerTripList from './views/passenger/TripList';
-import MyBookings from './views/passenger/MyBookings';
-import TicketView from './views/passenger/TicketView';
 import DriverDashboard from './views/driver/Dashboard';
-import CreateTrip from './views/driver/CreateTrip';
 import ManageRequests from './views/driver/ManageRequests';
-
-const SESSION_KEY = 'kx_prod_session_v2';
+import CreateTrip from './views/driver/CreateTrip';
+import Auth from './views/Auth';
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [sbUser, setSbUser] = useState<any>(null);
+  const [profile, setProfile] = useState<User | null>(null);
   const [view, setView] = useState<'passenger' | 'driver'>('passenger');
   const [activeScreen, setActiveScreen] = useState<string>('home');
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const allTrips = await db.getTrips();
-      setTrips(allTrips);
-      if (user) {
-        const myBookings = await db.getMyBookings(user.id);
-        const allBookings = user.role === UserRole.DRIVER ? await (db as any)._storage.get('bookings') : myBookings;
-        setBookings(allBookings);
-      }
-    } catch (e) { console.error(e); }
-    finally { setIsLoading(false); }
-  }, [user]);
+  const mapDbTrip = (t: any): Trip => ({
+    id: t.id,
+    driverId: t.driver_id,
+    date: t.date,
+    price: t.price,
+    totalSeats: t.total_seats,
+    availableSeats: t.available_seats,
+    from: t.from,
+    to: t.to,
+    departureTime: t.departure_time,
+    arrivalTime: t.arrival_time,
+    busPlate: t.bus_plate,
+    busModel: t.bus_model,
+    status: t.status as TripStatus,
+    occupiedSeats: [],
+    departureAddress: t.departure_address || '',
+    arrivalAddress: t.arrival_address || '',
+    type: t.type || 'Standard'
+  });
+
+  const mapDbBooking = (b: any): Booking => ({
+    id: b.id,
+    tripId: b.trip_id,
+    passengerId: b.passenger_id,
+    passengerName: b.passenger_name,
+    passengerPhone: b.passenger_phone,
+    status: b.status as BookingStatus,
+    timestamp: b.created_at
+  });
 
   useEffect(() => {
-    const session = localStorage.getItem(SESSION_KEY);
-    if (session) {
-      const parsedUser = JSON.parse(session);
-      setUser(parsedUser);
-      if (parsedUser.role === UserRole.DRIVER) setView('driver');
-    }
-    loadData();
-  }, [loadData]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSbUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
+    });
 
-  const handleBook = async (tripId: string, info: { fullName: string, phoneNumber: string }) => {
-    setIsLoading(true);
-    try {
-        const newUser: User = user || {
-            id: 'u_' + Math.random().toString(36).substr(2, 9),
-            fullName: info.fullName,
-            phoneNumber: info.phoneNumber,
-            email: '',
-            role: UserRole.PASSENGER
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSbUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
+      else { setProfile(null); setView('passenger'); setActiveScreen('home'); }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+    if (data) {
+        const userProfile: User = {
+            id: data.id,
+            fullName: data.full_name,
+            phoneNumber: data.phone_number,
+            email: sbUser?.email || '',
+            role: data.role as UserRole
         };
-        
-        if (!user) {
-            setUser(newUser);
-            localStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
-            await db.syncUser(newUser);
-        }
+        setProfile(userProfile);
+        if (userProfile.role === UserRole.DRIVER) setView('driver');
+    }
+  };
 
-        const booking = await db.createBooking({
-            tripId,
-            passengerId: newUser.id,
-            passengerName: newUser.fullName,
-            passengerPhone: newUser.phoneNumber
+  useEffect(() => {
+    if (!sbUser) return;
+
+    const fetchAllData = async () => {
+        const { data: tData } = await supabase.from('trips').select('*').order('date', { ascending: true });
+        if (tData) setTrips(tData.map(mapDbTrip));
+
+        const { data: bData } = await supabase.from('bookings').select('*');
+        if (bData) setBookings(bData.map(mapDbBooking));
+    };
+
+    fetchAllData();
+
+    const channel = supabase.channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', table: 'trips' }, fetchAllData)
+      .on('postgres_changes', { event: '*', table: 'bookings' }, fetchAllData)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [sbUser]);
+
+  const handleCreateBooking = async (tripId: string, info: any) => {
+    const trip = trips.find(t => t.id === tripId);
+    if (!trip || trip.availableSeats <= 0) return;
+
+    const { data: newBooking, error } = await supabase.from('bookings').insert({
+        trip_id: tripId,
+        passenger_id: profile?.id,
+        passenger_name: info.fullName,
+        passenger_phone: info.phoneNumber,
+        status: 'pending'
+    }).select().single();
+
+    if (!error) {
+        // Уменьшаем количество мест
+        await supabase.from('trips').update({ available_seats: trip.availableSeats - 1 }).eq('id', tripId);
+        
+        // Отправляем уведомление на Email
+        sendBookingNotification(trip, { 
+            id: newBooking?.id,
+            passengerName: info.fullName,
+            passengerPhone: info.phoneNumber
         });
 
-        const trip = trips.find(t => t.id === tripId);
-        if (trip) {
-            await sendTelegramNotification(`
-🆕 <b>БРОНЬ!</b>
-👤 ${booking.passengerName}
-📞 <code>${booking.passengerPhone}</code>
-📍 ${trip.from} → ${trip.to}
-📅 ${new Date(trip.date).toLocaleDateString('ru')}
-            `);
-        }
-
-        await loadData();
-        setSelectedBooking(booking);
-        setSelectedTrip(trip || null);
-        setActiveScreen('ticket');
-    } catch (e) { 
-        console.error(e);
-        alert("Ошибка бронирования."); 
-    }
-    finally { setIsLoading(false); }
-  };
-
-  const handleAdminAuth = () => {
-    const pin = prompt("Введите PIN-код доступа:");
-    if (pin === "0606") {
-        const driver: User = {
-            id: 'd_admin',
-            fullName: 'Адам Темирканов',
-            phoneNumber: '+7 928 000 00 06',
-            email: 'driver@kavkaz-express.ru',
-            role: UserRole.DRIVER
-        };
-        setUser(driver);
-        localStorage.setItem(SESSION_KEY, JSON.stringify(driver));
-        setView('driver');
         setActiveScreen('home');
-        loadData();
+    } else {
+        alert("Ошибка бронирования: " + error.message);
     }
   };
 
-  const handleUpdateTripStatus = async (tripId: string, status: TripStatus) => {
-    await db.updateTripStatus(tripId, status);
-    loadData();
+  const handleSaveTrip = async (tripData: any) => {
+    const dbData = {
+        driver_id: profile?.id,
+        date: tripData.date,
+        price: tripData.price,
+        total_seats: tripData.totalSeats,
+        available_seats: tripData.availableSeats,
+        from: tripData.from,
+        to: tripData.to,
+        departure_time: tripData.departureTime,
+        arrival_time: tripData.arrivalTime,
+        bus_plate: tripData.busPlate,
+        bus_model: tripData.busModel,
+        status: tripData.status || 'scheduled',
+        departure_address: tripData.departureAddress,
+        arrival_address: tripData.arrivalAddress,
+        type: tripData.type
+    };
+
+    let error;
+    if (selectedTrip) {
+        const { error: err } = await supabase.from('trips').update(dbData).eq('id', selectedTrip.id);
+        error = err;
+    } else {
+        const { error: err } = await supabase.from('trips').insert(dbData);
+        error = err;
+    }
+
+    if (!error) {
+        setActiveScreen('home');
+        setSelectedTrip(null);
+    } else {
+        alert("Ошибка сохранения: " + error.message);
+    }
   };
+
+  const handleUpdateBookingStatus = async (id: string, status: BookingStatus) => {
+    const booking = bookings.find(b => b.id === id);
+    if (!booking) return;
+
+    const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
+    
+    if (!error && (status === BookingStatus.CANCELLED || status === BookingStatus.REJECTED)) {
+        const trip = trips.find(t => t.id === booking.tripId);
+        if (trip) {
+            await supabase.from('trips').update({ available_seats: trip.availableSeats + 1 }).eq('id', trip.id);
+        }
+    }
+  };
+
+  const handleUpdateTripStatus = async (id: string, status: TripStatus) => {
+    await supabase.from('trips').update({ status }).eq('id', id);
+  };
+
+  if (!sbUser) return <Auth onAuthSuccess={() => {}} />;
+  if (!profile) return <div className="flex-1 flex items-center justify-center bg-white"><div className="animate-spin size-8 border-4 border-primary border-t-transparent rounded-full"></div></div>;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-bg-soft shadow-2xl relative flex flex-col overflow-hidden">
-      {isLoading && (
-        <div className="fixed top-0 left-0 right-0 h-1 z-[100] bg-primary/20 overflow-hidden">
-          <div className="h-full bg-primary animate-[shimmer_1.5s_infinite] w-1/4 rounded-full shadow-[0_0_10px_rgba(19,127,236,0.5)]"></div>
-        </div>
-      )}
-
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-          {view === 'passenger' ? (
-            <>
-                {activeScreen === 'home' && (
-                    <PassengerHome 
-                        user={user || { id: '', fullName: '', phoneNumber: '', email: '', role: UserRole.PASSENGER }} 
-                        onSearch={(d) => { setSelectedDate(d); setActiveScreen('trips'); }}
-                        onNavigateBookings={() => setActiveScreen('bookings')}
-                        onAdminClick={handleAdminAuth}
-                    />
-                )}
-                {activeScreen === 'trips' && (
-                    <PassengerTripList 
-                        trips={trips.filter(t => t.date.startsWith(selectedDate))}
-                        selectedDate={selectedDate}
-                        onBack={() => setActiveScreen('home')}
-                        onBook={handleBook}
-                        initialUserData={user || undefined}
-                    />
-                )}
-                {activeScreen === 'bookings' && (
-                    <MyBookings 
-                        bookings={bookings}
-                        trips={trips}
-                        onBack={() => setActiveScreen('home')}
-                        onCancelBooking={async (id) => { if(confirm("Отменить?")) { await db.updateBookingStatus(id, BookingStatus.CANCELLED); loadData(); } }}
-                    />
-                )}
-                {activeScreen === 'ticket' && selectedBooking && selectedTrip && (
-                    <TicketView 
-                        booking={selectedBooking} 
-                        trip={selectedTrip} 
-                        onBack={() => setActiveScreen('home')} 
-                    />
-                )}
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col h-full">
-              {activeScreen === 'home' && (
+        {view === 'passenger' ? (
+            activeScreen === 'home' ? (
+                <PassengerHome 
+                    user={profile} 
+                    onSearch={(d) => { setSelectedDate(d); setActiveScreen('trips'); }}
+                    onNavigateBookings={() => setActiveScreen('bookings')}
+                    onAdminClick={() => profile.role === UserRole.DRIVER && setView('driver')}
+                />
+            ) : activeScreen === 'trips' ? (
+                <PassengerTripList 
+                    trips={trips.filter(t => t.date === selectedDate)}
+                    selectedDate={selectedDate}
+                    onBack={() => setActiveScreen('home')}
+                    onBook={handleCreateBooking}
+                    initialUserData={{ fullName: profile.fullName, phoneNumber: profile.phoneNumber }}
+                />
+            ) : null
+        ) : (
+            activeScreen === 'home' ? (
                 <DriverDashboard 
-                    user={user!} 
+                    user={profile} 
                     unreadNotifications={0}
                     onOpenNotifications={() => {}}
-                    trips={trips} 
+                    trips={trips.filter(t => t.driverId === profile.id)} 
                     bookings={bookings} 
-                    onCreateTrip={() => setActiveScreen('create-trip')}
+                    onCreateTrip={() => { setSelectedTrip(null); setActiveScreen('create-trip'); }}
                     onManageTrip={(t) => { setSelectedTrip(t); setActiveScreen('manage'); }}
-                    onEditTrip={(t) => { setSelectedTrip(t); setActiveScreen('create-trip'); }}
-                    onDeleteTrip={async (id) => { if(confirm("Удалить рейс?")) { await db.deleteTrip(id); loadData(); } }}
-                    onLogout={() => { localStorage.removeItem(SESSION_KEY); setView('passenger'); setUser(null); }}
+                    onEditTrip={(t) => { setSelectedTrip(t); setActiveScreen('create-trip'); }} 
+                    onDeleteTrip={async (id) => { if(confirm("Удалить?")) await supabase.from('trips').delete().eq('id', id); }}
+                    onLogout={async () => { await supabase.auth.signOut(); }}
                 />
-              )}
-              {activeScreen === 'create-trip' && (
-                  <CreateTrip 
-                    driverId={user!.id}
+            ) : activeScreen === 'create-trip' ? (
+                <CreateTrip 
+                    driverId={profile.id}
                     initialTrip={selectedTrip}
-                    onSave={async (t) => { 
-                      if (selectedTrip) {
-                        // Logic for update in store needed or simple replace
-                        const all = (db as any)._storage.get('trips');
-                        const idx = all.findIndex((trip: any) => trip.id === t.id);
-                        if (idx > -1) all[idx] = t;
-                        (db as any)._storage.set('trips', all);
-                      } else {
-                        await db.createTrip(t);
-                      }
-                      setSelectedTrip(null);
-                      loadData(); 
-                      setActiveScreen('home'); 
-                    }}
+                    onSave={handleSaveTrip}
                     onCancel={() => { setSelectedTrip(null); setActiveScreen('home'); }}
-                  />
-              )}
-              {activeScreen === 'manage' && selectedTrip && (
-                  <ManageRequests 
+                />
+            ) : activeScreen === 'manage' && selectedTrip ? (
+                <ManageRequests 
                     trip={selectedTrip}
                     bookings={bookings.filter(b => b.tripId === selectedTrip.id)}
                     allUsers={[]}
-                    onUpdateStatus={async (id, s) => { await db.updateBookingStatus(id, s); loadData(); }}
+                    onUpdateStatus={handleUpdateBookingStatus}
                     onUpdateTripStatus={handleUpdateTripStatus}
                     onBack={() => setActiveScreen('home')}
                   />
-              )}
-            </div>
-          )}
-      </div>
+            ) : null
+        )}
     </div>
   );
 };
